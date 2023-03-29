@@ -1,4 +1,10 @@
-from django.http import HttpResponse
+from .models import *
+from rest_framework import viewsets,permissions
+from .serializer import *
 
-def index(request):
-    return HttpResponse("Hello, world. You're at the polls index.")
+class UserViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    permission_classes = [
+        permissions.AllowAny
+    ]
+    serializer_class = UserSerializer
