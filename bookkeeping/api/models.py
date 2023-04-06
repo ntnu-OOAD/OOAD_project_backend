@@ -3,8 +3,9 @@ from django.db import models
 # Create your models here.
 class User(models.Model):
     UserID = models.BigAutoField(primary_key=True)
-    Username = models.TextField(max_length=320 , default = "None")
-    Email = models.TextField(max_length=320 , default = "None")
+    UserName = models.TextField(max_length=320 , unique=True, blank=False)
+    UserNickName = models.TextField(max_length=320 , blank=False)
+    Password = models.TextField(max_length=320 , blank=False)
     CreateDate = models.DateTimeField(auto_now_add=True)
 
 class Ledger(models.Model):
