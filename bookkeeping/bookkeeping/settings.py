@@ -27,8 +27,11 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
+AUTH_USER_MODEL = "api.User"
 
 # Application definition
+
+AUTHENTICATION_BACKENDS = ['django.contrib.auth.backends.ModelBackend',]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
