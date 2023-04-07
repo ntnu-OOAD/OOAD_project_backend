@@ -37,7 +37,6 @@ class UserViewSet(viewsets.ModelViewSet):
         # check if username is already taken
         if User.objects.filter(username=username).exists():
             return Response({'status': 'fail', 'error': 'username already taken'})
-        password = make_password(password, None, 'pbkdf2_sha256')
         user = User.objects.create_user(username=username, nickname=nickname, password=password)
         user.save()
         return Response({'status': 'success'})
