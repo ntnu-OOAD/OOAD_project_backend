@@ -2,21 +2,21 @@ from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, Permis
 from django.db import models
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, username, nickname, password):
+    def create_user(self, UserID, nickname, password):
         """
         Creates and saves a User with the given email and password.
         """
-        if not username:
-            raise ValueError('The username field must be set')
-        user = self.model(username=username, nickname=nickname)
+        if not UserID:
+            raise ValueError('The UserID field must be set')
+        user = self.model(UserID=UserID, nickname=nickname)
         user.set_password(password)
         user.save(using=self._db)
         return user
-    def create_superuser(self, username, nickname, password):
+    def create_superuser(self, UserID, nickname, password):
         """
         Creates and saves a superuser with the given email and password.
         """
-        user = self.model(username=username, nickname=nickname)
+        user = self.model(UserID=UserID, nickname=nickname)
         user.set_password(password)
         user.is_superuser = True
         user.is_admin = True
@@ -26,23 +26,23 @@ class CustomUserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    username = models.CharField(max_length=320, unique=True, blank=False)
+    UserID = models.CharField(max_length=320, unique=True, blank=False)
     nickname = models.CharField(max_length=320, blank=False)
     create_date = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
 
-    USERNAME_FIELD = 'username'
+    USERNAME_FIELD = 'UserID'
     REQUIRED_FIELDS = ['nickname']
 
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.username
+        return self.UserID
 
     def get_full_name(self):
-        return self.username
+        return self.UserID
 
     def get_short_name(self):
         return self.nickname

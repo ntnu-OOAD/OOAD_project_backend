@@ -14,9 +14,9 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     @action(detail=False, methods=['post'])
     def login(self, request):
-        username = request.data['username']
+        UserID = request.data['UserID']
         password = request.data['password']
-        user = authenticate(username=username, password=password)
+        user = authenticate(UserID=UserID, password=password)
         if user is not None:
             login(request, user)
             return Response({'status': 'success'})
@@ -31,13 +31,13 @@ class UserViewSet(viewsets.ModelViewSet):
         return Response({'status': 'success'})
     @action(detail=False, methods=['post'])
     def register(self, request):
-        username = request.data['username']
+        UserID = request.data['UserID']
         nickname = request.data['nickname']
         password = request.data['password']
-        # check if username is already taken
-        if User.objects.filter(username=username).exists():
-            return Response({'status': 'fail', 'error': 'username already taken'})
-        user = User.objects.create_user(username=username, nickname=nickname, password=password)
+        # check if UserID is already taken
+        if User.objects.filter(UserID=UserID).exists():
+            return Response({'status': 'fail', 'error': 'UserID already taken'})
+        user = User.objects.create_user(UserID=UserID, nickname=nickname, password=password)
         user.save()
         return Response({'status': 'success'})
     @action(detail=False, methods=['get'])
@@ -45,5 +45,5 @@ class UserViewSet(viewsets.ModelViewSet):
         # check if user is logged in
         if not request.user.is_authenticated:
             return Response({'status': 'fail', 'error': 'user not logged in'})
-        user = User.objects.get(username=request.user.username)
+        user = User.objects.get(UserID=request.user.UserID)
         return Response({'status': 'success', 'user': UserSerializer(user).data})
