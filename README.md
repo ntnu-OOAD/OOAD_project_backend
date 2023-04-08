@@ -1,4 +1,4 @@
-# OOAD_project
+# OOAD_project_backend
 
 cd bookkeeping<br>
 pip install -r requirement.txt<br>
