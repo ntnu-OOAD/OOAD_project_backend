@@ -4,7 +4,8 @@ from .serializer import *
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.hashers import make_password
+from django.contrib.auth.hashers import make_password    
+from django.http import JsonResponse
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
@@ -19,16 +20,16 @@ class UserViewSet(viewsets.ModelViewSet):
         user = authenticate(UserID=UserID, password=password)
         if user is not None:
             login(request, user)
-            return Response({'status': 'success'})
+            return JsonResponse({'status': 'success'})
         else:
-            return Response({'status': 'fail'})
+            return JsonResponse({'status': 'fail'})
     @action(detail=False, methods=['post'])
     def logout(self, request):
         # check if user is logged in
         if not request.user.is_authenticated:
-            return Response({'status': 'fail', 'error': 'user not logged in'})
+            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
         logout(request)
-        return Response({'status': 'success'})
+        return JsonResponse({'status': 'success'})
     @action(detail=False, methods=['post'])
     def register(self, request):
         UserID = request.data['UserID']
@@ -36,17 +37,17 @@ class UserViewSet(viewsets.ModelViewSet):
         password = request.data['password']
         # check if UserID is already taken
         if User.objects.filter(UserID=UserID).exists():
-            return Response({'status': 'fail', 'error': 'UserID already taken'})
+            return JsonResponse({'status': 'fail', 'error': 'UserID already taken'})
         user = User.objects.create_user(UserID=UserID, nickname=nickname, password=password)
         user.save()
-        return Response({'status': 'success'})
+        return JsonResponse({'status': 'success'})
     @action(detail=False, methods=['get'])
     def get_user(self, request):
         # check if user is logged in
         if not request.user.is_authenticated:
-            return Response({'status': 'fail', 'error': 'user not logged in'})
+            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
         user = User.objects.get(UserID=request.user.UserID)
-        return Response({'status': 'success', 'user': UserSerializer(user).data})
+        return JsonResponse({'status': 'success', 'user': UserSerializer(user).data})
     
 class LedgerViewSet(viewsets.ModelViewSet):
     queryset = Ledger.objects.all()
@@ -62,13 +63,13 @@ class LedgerViewSet(viewsets.ModelViewSet):
         ledger.save()
         ledger_access = LedgerAccess.objects.create(LedgerID=ledger.LedgerID, UserID=OwnerID, AccessLevel=1)
         ledger_access.save()
-        return Response({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
+        return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
     
     @action(detail=False, methods=['get'])
     def get_ledgers(self, request):
         # return the ledgers that the user has access by checking the ledger_access table
         ledgers = Ledger.objects.filter(ledgeraccess__UserID=request.user)
-        return Response({'status': 'success', 'ledgers': LedgerSerializer(ledgers, many=True).data})
+        return JsonResponse({'status': 'success', 'ledgers': LedgerSerializer(ledgers, many=True).data})
     
 class LedgerAccessViewSet(viewsets.ModelViewSet):
     queryset = LedgerAccess.objects.all()
@@ -83,4 +84,4 @@ class LedgerAccessViewSet(viewsets.ModelViewSet):
         AccessLevel = request.data['AccessLevel']
         ledger_access = LedgerAccess.objects.create(LedgerID=LedgerID, UserID=UserID, AccessLevel=AccessLevel)
         ledger_access.save()
-        return Response({'status': 'success', 'ledger_access': LedgerAccessSerializer(ledger_access).data})
+        return JsonResponse({'status': 'success', 'ledger_access': LedgerAccessSerializer(ledger_access).data})
