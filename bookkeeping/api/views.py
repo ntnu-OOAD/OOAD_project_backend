@@ -59,9 +59,10 @@ class LedgerViewSet(viewsets.ModelViewSet):
     def create_ledger(self, request):
         Type = request.data['Type']
         OwnerID = request.user.UserID
-        ledger = Ledger.objects.create(OwnerID=OwnerID, Type=Type)
+        user = User.objects.get(UserID=OwnerID)
+        ledger = Ledger.objects.create(OwnerID=user, Type=Type)
         ledger.save()
-        ledger_access = LedgerAccess.objects.create(LedgerID=ledger.LedgerID, UserID=OwnerID, AccessLevel=1)
+        ledger_access = LedgerAccess.objects.create(LedgerID=ledger, UserID=user, AccessLevel="Owner")
         ledger_access.save()
         return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
     
@@ -71,6 +72,7 @@ class LedgerViewSet(viewsets.ModelViewSet):
         ledgers = Ledger.objects.filter(ledgeraccess__UserID=request.user)
         return JsonResponse({'status': 'success', 'ledgers': LedgerSerializer(ledgers, many=True).data})
     
+
 class LedgerAccessViewSet(viewsets.ModelViewSet):
     queryset = LedgerAccess.objects.all()
     permission_classes = [
@@ -85,3 +87,29 @@ class LedgerAccessViewSet(viewsets.ModelViewSet):
         ledger_access = LedgerAccess.objects.create(LedgerID=LedgerID, UserID=UserID, AccessLevel=AccessLevel)
         ledger_access.save()
         return JsonResponse({'status': 'success', 'ledger_access': LedgerAccessSerializer(ledger_access).data})
+
+class RecordViewSet(viewsets.ModelViewSet):
+    queryset = Record.objects.all()
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+    serializer_class = RecordSerializer
+    @action(detail=False, methods=['post'])
+    def create_record(self, request):
+        LedgerID = request.data['LedgerID']
+        ItemName = request.data['ItemName']
+        ItemType = request.data['ItemType']
+        Cost = request.data['Cost']
+        Payby = request.data['Payby']
+        BoughtDate = request.data['BoughtDate']
+        if(BoughtDate == ''):
+            BoughtDate = datetime.now()
+        record = Record.objects.create(LedgerID=LedgerID, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=Payby, BoughtDate=BoughtDate)
+        record.save()
+        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
+
+    @action(detail=False, methods=['get'])
+    def get_records_by_ledger(self, request):
+        LedgerID = request.GET.get('LedgerID')
+        records = Record.objects.filter(LedgerID=LedgerID)
+        return JsonResponse({'status': 'success', 'records': RecordSerializer(records, many=True).data})

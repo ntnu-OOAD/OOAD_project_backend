@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
+from datetime import datetime
 
 class CustomUserManager(BaseUserManager):
     def create_user(self, UserID, nickname, password):
@@ -64,7 +65,8 @@ class Record(models.Model):
     ItemName = models.TextField(max_length=320 , default = "None")
     ItemType = models.TextField(max_length=320 , default = "None")
     Cost = models.DecimalField(max_digits=10, decimal_places=2)
-    Payby = models.TextField(max_length=320 , default = "None")
+    Payby = models.ForeignKey(User, on_delete=models.CASCADE)
+    BoughtDate = models.DateTimeField(default=datetime.now)
 
 class SharePay(models.Model):
     RecordID = models.ForeignKey(Record, on_delete=models.CASCADE)

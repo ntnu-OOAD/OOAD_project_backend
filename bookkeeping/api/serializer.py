@@ -16,3 +16,8 @@ class LedgerAccessSerializer(serializers.ModelSerializer):
     class Meta:
         model = LedgerAccess
         fields = ['LedgerID', 'UserID', 'AccessLevel']
+
+class RecordSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Record
+        fields = ['RecordID', 'LedgerID', 'ItemName', 'ItemType', 'Cost', 'Payby', 'BoughtDate']

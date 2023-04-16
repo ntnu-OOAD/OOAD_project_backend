@@ -6,6 +6,7 @@ router = routers.DefaultRouter()
 router.register("users", views.UserViewSet)
 router.register("ledgers", views.LedgerViewSet)
 router.register("ledger_access", views.LedgerAccessViewSet)
+router.register("records", views.RecordViewSet)
 
 urlpatterns = [
     path("", include(router.urls)),
