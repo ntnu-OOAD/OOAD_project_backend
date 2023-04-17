@@ -57,10 +57,10 @@ class LedgerViewSet(viewsets.ModelViewSet):
     serializer_class = LedgerSerializer
     @action(detail=False, methods=['post'])
     def create_ledger(self, request):
-        Type = request.data['Type']
+        LedgerType = request.data['LedgerType']
         OwnerID = request.user.UserID
         user = User.objects.get(UserID=OwnerID)
-        ledger = Ledger.objects.create(OwnerID=user, Type=Type)
+        ledger = Ledger.objects.create(OwnerID=user, LedgerType=LedgerType)
         ledger.save()
         ledger_access = LedgerAccess.objects.create(LedgerID=ledger, UserID=user, AccessLevel="Owner")
         ledger_access.save()
