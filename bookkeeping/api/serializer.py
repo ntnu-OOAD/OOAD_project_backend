@@ -10,7 +10,7 @@ class UserSerializer(serializers.ModelSerializer):
 class LedgerSerializer(serializers.ModelSerializer):
     class Meta:
         model = Ledger
-        fields = ['LedgerID', 'OwnerID', 'Type', 'CreateDate']
+        fields = ['LedgerID', 'OwnerID', 'LedgerType', 'CreateDate']
 
 class LedgerAccessSerializer(serializers.ModelSerializer):
     class Meta:
