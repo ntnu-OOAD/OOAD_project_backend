@@ -74,6 +74,7 @@ class LedgerViewSet(viewsets.ModelViewSet):
         return JsonResponse({'status': 'success', 'ledgers': LedgerSerializer(ledgers, many=True).data})
     
 
+
 class LedgerAccessViewSet(viewsets.ModelViewSet):
     queryset = LedgerAccess.objects.all()
     permission_classes = [
@@ -83,9 +84,17 @@ class LedgerAccessViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'])
     def create_ledger_access(self, request):
         LedgerID = request.data['LedgerID']
+        ledger = Ledger.objects.get(LedgerID=LedgerID)
         UserID = request.data['UserID']
+        user = User.objects.get(id=UserID)
         AccessLevel = request.data['AccessLevel']
-        ledger_access = LedgerAccess.objects.create(LedgerID=LedgerID, UserID=UserID, AccessLevel=AccessLevel)
+        # check if user have Owner or Coll access level to the ledger
+        if(ledger.ledgeraccess_set.filter(UserID=request.user.id, AccessLevel__in=["Owner", "Coll"]).exists() == False):
+            return JsonResponse({'status': 'fail', 'error': 'user have no access to the ledger'})
+        # check if user or ledger does not exist
+        if(ledger is None or user is None):
+            return JsonResponse({'status': 'fail', 'error': 'user or ledger does not exist'})
+        ledger_access = LedgerAccess.objects.create(LedgerID=ledger, UserID=user, AccessLevel=AccessLevel)
         ledger_access.save()
         return JsonResponse({'status': 'success', 'ledger_access': LedgerAccessSerializer(ledger_access).data})
 
