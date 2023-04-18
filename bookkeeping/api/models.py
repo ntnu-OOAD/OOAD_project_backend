@@ -50,9 +50,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 class Ledger(models.Model):
     LedgerID = models.BigAutoField(primary_key=True)
+    LedgerName = models.TextField(max_length=320 , default = "None")
     OwnerID = models.ForeignKey(User, on_delete=models.CASCADE)
     LedgerType = models.TextField(max_length=320 , default = "None")
     CreateDate = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.LedgerName
+    
 
 class LedgerAccess(models.Model):
     LedgerID = models.ForeignKey(Ledger, on_delete=models.CASCADE)
