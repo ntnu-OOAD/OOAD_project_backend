@@ -3,21 +3,21 @@ from django.db import models
 from datetime import datetime
 
 class CustomUserManager(BaseUserManager):
-    def create_user(self, UserID, nickname, password):
+    def create_user(self, UserName, UserNickname, password):
         """
         Creates and saves a User with the given email and password.
         """
-        if not UserID:
-            raise ValueError('The UserID field must be set')
-        user = self.model(UserID=UserID, nickname=nickname)
+        if not UserName:
+            raise ValueError('The UserName field must be set')
+        user = self.model(UserName=UserName, UserNickname=UserNickname)
         user.set_password(password)
         user.save(using=self._db)
         return user
-    def create_superuser(self, UserID, nickname, password):
+    def create_superuser(self, UserName, password):
         """
         Creates and saves a superuser with the given email and password.
         """
-        user = self.model(UserID=UserID, nickname=nickname)
+        user = self.model(UserName=UserName)
         user.set_password(password)
         user.is_superuser = True
         user.is_admin = True
@@ -27,26 +27,27 @@ class CustomUserManager(BaseUserManager):
 
 
 class User(AbstractBaseUser, PermissionsMixin):
-    UserID = models.CharField(max_length=320, unique=True, blank=False)
-    nickname = models.CharField(max_length=320, blank=False)
+    UserID = models.BigAutoField(primary_key=True)
+    UserName = models.CharField(max_length=320, blank=False, unique=True)
+    UserNickname = models.CharField(max_length=320, blank=False)
     create_date = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
 
-    USERNAME_FIELD = 'UserID'
-    REQUIRED_FIELDS = ['nickname']
+    USERNAME_FIELD = 'UserName'
+    REQUIRED_FIELDS = []
 
     objects = CustomUserManager()
 
     def __str__(self):
-        return self.UserID
+        return self.UserName
 
     def get_full_name(self):
-        return self.UserID
+        return self.UserName
 
     def get_short_name(self):
-        return self.nickname
+        return self.UserName
 
 class Ledger(models.Model):
     LedgerID = models.BigAutoField(primary_key=True)

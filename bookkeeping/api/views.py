@@ -15,9 +15,9 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
     @action(detail=False, methods=['post'])
     def login(self, request):
-        UserID = request.data['UserID']
+        UserName = request.data['UserName']
         password = request.data['password']
-        user = authenticate(UserID=UserID, password=password)
+        user = authenticate(UserName=UserName, password=password)
         if user is not None:
             login(request, user)
             return JsonResponse({'status': 'success'})
@@ -32,13 +32,14 @@ class UserViewSet(viewsets.ModelViewSet):
         return JsonResponse({'status': 'success'})
     @action(detail=False, methods=['post'])
     def register(self, request):
-        UserID = request.data['UserID']
-        nickname = request.data['nickname']
+        UserName = request.data['UserName']
+        UserNickname = request.data['UserNickname']
         password = request.data['password']
+        print (UserName, UserNickname, password)
         # check if UserID is already taken
-        if User.objects.filter(UserID=UserID).exists():
-            return JsonResponse({'status': 'fail', 'error': 'UserID already taken'})
-        user = User.objects.create_user(UserID=UserID, nickname=nickname, password=password)
+        if User.objects.filter(UserName=UserName).exists():
+            return JsonResponse({'status': 'fail', 'error': 'UserName already taken'})
+        user = User.objects.create_user(UserName=UserName, UserNickname=UserNickname, password=password)
         user.save()
         return JsonResponse({'status': 'success'})
     @action(detail=False, methods=['get'])
@@ -86,10 +87,10 @@ class LedgerAccessViewSet(viewsets.ModelViewSet):
         LedgerID = request.data['LedgerID']
         ledger = Ledger.objects.get(LedgerID=LedgerID)
         UserID = request.data['UserID']
-        user = User.objects.get(id=UserID)
+        user = User.objects.get(UserID=UserID)
         AccessLevel = request.data['AccessLevel']
         # check if user have Owner or Coll access level to the ledger
-        if(ledger.ledgeraccess_set.filter(UserID=request.user.id, AccessLevel__in=["Owner", "Coll"]).exists() == False):
+        if(ledger.ledgeraccess_set.filter(UserID=request.user.UserID, AccessLevel__in=["Owner", "Coll"]).exists() == False):
             return JsonResponse({'status': 'fail', 'error': 'user have no access to the ledger'})
         # check if user or ledger does not exist
         if(ledger is None or user is None):
@@ -118,6 +119,7 @@ class RecordViewSet(viewsets.ModelViewSet):
         record.save()
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
 
+    # get records by ledger with ledgerID as parameter
     @action(detail=False, methods=['get'])
     def get_records_by_ledger(self, request):
         LedgerID = request.GET.get('LedgerID')

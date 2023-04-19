@@ -5,7 +5,7 @@ from rest_framework import serializers
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ['id', 'UserID', 'nickname', 'password']
+        fields = ['UserID', 'UserName', 'UserNickname', 'password']
 
 class LedgerSerializer(serializers.ModelSerializer):
     class Meta:
