@@ -49,6 +49,11 @@ class UserViewSet(viewsets.ModelViewSet):
             return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
         user = User.objects.get(UserID=request.user.UserID)
         return JsonResponse({'status': 'success', 'user': UserSerializer(user).data})
+    @action(detail=False, methods=['get'])
+    def get_userid_from_username(self, request):
+        UserName = request.GET.get('UserName')
+        user = User.objects.get(UserName=UserName)
+        return JsonResponse({'status': 'success', 'UserID': user.UserID})
     
 class LedgerViewSet(viewsets.ModelViewSet):
     queryset = Ledger.objects.all()
