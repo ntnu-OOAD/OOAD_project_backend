@@ -104,6 +104,8 @@ class LedgerAccessViewSet(viewsets.ModelViewSet):
         ledger_access.save()
         return JsonResponse({'status': 'success', 'ledger_access': LedgerAccessSerializer(ledger_access).data})
 
+
+
 class RecordViewSet(viewsets.ModelViewSet):
     queryset = Record.objects.all()
     permission_classes = [
@@ -120,10 +122,11 @@ class RecordViewSet(viewsets.ModelViewSet):
         BoughtDate = request.data['BoughtDate']
         if(BoughtDate == ''):
             BoughtDate = datetime.now()
-        record = Record.objects.create(LedgerID=LedgerID, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=Payby, BoughtDate=BoughtDate)
+        ledger = Ledger.objects.get(LedgerID=LedgerID)
+        payby = User.objects.get(UserID=Payby)
+        record = Record.objects.create(LedgerID=ledger, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=payby, BoughtDate=BoughtDate)
         record.save()
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
-
     # get records by ledger with ledgerID as parameter
     @action(detail=False, methods=['get'])
     def get_records_by_ledger(self, request):
