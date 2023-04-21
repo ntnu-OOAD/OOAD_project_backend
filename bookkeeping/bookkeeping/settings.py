@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "api.apps.ApiConfig",
     "rest_framework",
+    
 ]
 
 MIDDLEWARE = [
@@ -54,6 +55,13 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "bookkeeping.middlewares.NoCSRFCheck",
 ]
+
+INTERNAL_IPS=[]
+
+if DEBUG:
+    MIDDLEWARE.insert(0, "debug_toolbar.middleware.DebugToolbarMiddleware")
+    INTERNAL_IPS.append('127.0.0.1')
+    INSTALLED_APPS.append('debug_toolbar')
 
 ROOT_URLCONF = "bookkeeping.urls"
 
