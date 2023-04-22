@@ -6,14 +6,21 @@ from rest_framework.response import Response
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import make_password    
 from django.http import JsonResponse
+from drf_yasg.utils import swagger_auto_schema
+from rest_framework.parsers import MultiPartParser
+from drf_yasg import openapi
 
-class UserViewSet(viewsets.ModelViewSet):
+
+class UserViewSet(viewsets.GenericViewSet):
     queryset = User.objects.all()
     permission_classes = [
         permissions.AllowAny
     ]
     serializer_class = UserSerializer
-    @action(detail=False, methods=['post'])
+    parser_classes = (MultiPartParser,)
+    
+    @swagger_auto_schema(operation_summary='登入',)
+    @action(detail=False, methods=['post'] )
     def login(self, request):
         UserName = request.data['UserName']
         password = request.data['password']
@@ -35,13 +42,27 @@ class UserViewSet(viewsets.ModelViewSet):
         UserName = request.data['UserName']
         UserNickname = request.data['UserNickname']
         password = request.data['password']
-        print (UserName, UserNickname, password)
         # check if UserID is already taken
         if User.objects.filter(UserName=UserName).exists():
             return JsonResponse({'status': 'fail', 'error': 'UserName already taken'})
         user = User.objects.create_user(UserName=UserName, UserNickname=UserNickname, password=password)
         user.save()
         return JsonResponse({'status': 'success'})
+
+    @action(detail=False, methods=['put'])
+    def change_password(self, request):
+        # check if user is logged in
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
+        old_password = request.data['old_password']
+        new_password = request.data['new_password']
+        user = User.objects.get(UserID=request.user.UserID)
+        if user.check_password(old_password):
+            user.set_password(new_password)
+            user.save()
+            return JsonResponse({'status': 'success'})
+        else:
+            return JsonResponse({'status': 'fail', 'error': 'incorrect old password'})
     @action(detail=False, methods=['get'])
     def get_user(self, request):
         # check if user is logged in
@@ -49,13 +70,20 @@ class UserViewSet(viewsets.ModelViewSet):
             return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
         user = User.objects.get(UserID=request.user.UserID)
         return JsonResponse({'status': 'success', 'user': UserSerializer(user).data})
+    
+    @swagger_auto_schema(
+        operation_summary='根據 UserName 取得 UserID',
+        manual_parameters=[
+            openapi.Parameter('UserName', openapi.IN_QUERY, description="User Name", type=openapi.TYPE_STRING),
+        ],
+        )
     @action(detail=False, methods=['get'])
     def get_userid_from_username(self, request):
         UserName = request.GET.get('UserName')
         user = User.objects.get(UserName=UserName)
         return JsonResponse({'status': 'success', 'UserID': user.UserID})
     
-class LedgerViewSet(viewsets.ModelViewSet):
+class LedgerViewSet(viewsets.GenericViewSet):
     queryset = Ledger.objects.all()
     permission_classes = [
         permissions.IsAuthenticated
@@ -81,7 +109,7 @@ class LedgerViewSet(viewsets.ModelViewSet):
     
 
 
-class LedgerAccessViewSet(viewsets.ModelViewSet):
+class LedgerAccessViewSet(viewsets.GenericViewSet):
     queryset = LedgerAccess.objects.all()
     permission_classes = [
         permissions.IsAuthenticated
@@ -106,7 +134,7 @@ class LedgerAccessViewSet(viewsets.ModelViewSet):
 
 
 
-class RecordViewSet(viewsets.ModelViewSet):
+class RecordViewSet(viewsets.GenericViewSet):
     queryset = Record.objects.all()
     permission_classes = [
         permissions.IsAuthenticated
