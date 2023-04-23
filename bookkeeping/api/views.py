@@ -10,7 +10,9 @@ from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_yasg import openapi
 from django.db import connection
-from bookkeeping_services import user_services
+from django.db.models import Q, F
+
+# from bookkeeping_services import user_services
 # user_services.printHello()
 
 class UserViewSet(viewsets.GenericViewSet):
@@ -111,7 +113,8 @@ class UserViewSet(viewsets.GenericViewSet):
         UserName = request.GET.get('UserName')
         user = User.objects.get(UserName=UserName)
         return JsonResponse({'status': 'success', 'UserID': user.UserID})
-    
+
+
 class LedgerViewSet(viewsets.GenericViewSet):
     queryset = Ledger.objects.all()
     permission_classes = [
@@ -145,19 +148,10 @@ class LedgerViewSet(viewsets.GenericViewSet):
         # check if user is logged in
         if not request.user.is_authenticated:
             return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
-        cursor = connection.cursor()
-        cursor.execute("SELECT L.LedgerID, L.LedgerName, L.LedgerType, L.OwnerID_id, LA.AccessLevel FROM api_ledger as L INNER JOIN api_ledgeraccess as LA ON L.LedgerID = LA.LedgerID_id WHERE LA.UserID_id = %s", [request.user.UserID])
-        ledger_with_access = []
-        for row in cursor.fetchall():
-            ledger_with_access.append({
-                'LedgerID': row[0],
-                'LedgerName': row[1],
-                'LedgerType': row[2],
-                'OwnerID': row[3],
-                'AccessLevel': row[4],
-            }
-        )
-        return JsonResponse({'status': 'success', 'ledger_with_access': ledger_with_access})
+        ledger_with_access = Ledger.objects.filter(
+        Q(ledgeraccess__UserID_id=request.user.UserID)).values(
+            'LedgerID', 'LedgerName', 'LedgerType', 'OwnerID', AccessLevel=F('ledgeraccess__AccessLevel'))
+        return JsonResponse({'status': 'success', 'ledger_with_access': list(ledger_with_access)})
 
 class LedgerAccessViewSet(viewsets.GenericViewSet):
     queryset = LedgerAccess.objects.all()
