@@ -7,9 +7,11 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.hashers import make_password    
 from django.http import JsonResponse
 from drf_yasg.utils import swagger_auto_schema
-from rest_framework.parsers import MultiPartParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_yasg import openapi
 
+from bookkeeping_services import user_services
+# user_services.printHello()
 
 class UserViewSet(viewsets.GenericViewSet):
     queryset = User.objects.all()
@@ -17,9 +19,14 @@ class UserViewSet(viewsets.GenericViewSet):
         permissions.AllowAny
     ]
     serializer_class = UserSerializer
-    parser_classes = (MultiPartParser,)
+    parser_classes = (MultiPartParser,FormParser, JSONParser)
     
-    @swagger_auto_schema(operation_summary='登入',)
+    @swagger_auto_schema(operation_summary='登入',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'UserName': openapi.Schema(type=openapi.TYPE_STRING, description='使用者名稱'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='密碼'),
+            },),)
     @action(detail=False, methods=['post'] )
     def login(self, request):
         UserName = request.data['UserName']
@@ -30,6 +37,10 @@ class UserViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'success'})
         else:
             return JsonResponse({'status': 'fail'})
+
+    @swagger_auto_schema(operation_summary='登出',
+        request_body=None
+    )
     @action(detail=False, methods=['post'])
     def logout(self, request):
         # check if user is logged in
@@ -37,6 +48,14 @@ class UserViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
         logout(request)
         return JsonResponse({'status': 'success'})
+
+    @swagger_auto_schema(operation_summary='註冊',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'UserName': openapi.Schema(type=openapi.TYPE_STRING, description='使用者名稱'),
+                'UserNickname': openapi.Schema(type=openapi.TYPE_STRING, description='使用者暱稱'),
+                'password': openapi.Schema(type=openapi.TYPE_STRING, description='密碼'),
+            },),)
     @action(detail=False, methods=['post'])
     def register(self, request):
         UserName = request.data['UserName']
@@ -49,6 +68,12 @@ class UserViewSet(viewsets.GenericViewSet):
         user.save()
         return JsonResponse({'status': 'success'})
 
+    @swagger_auto_schema(operation_summary='修改密碼',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'old_password': openapi.Schema(type=openapi.TYPE_STRING, description='舊密碼'),
+                'new_password': openapi.Schema(type=openapi.TYPE_STRING, description='新密碼'),
+            },),)
     @action(detail=False, methods=['put'])
     def change_password(self, request):
         # check if user is logged in
@@ -63,6 +88,10 @@ class UserViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'success'})
         else:
             return JsonResponse({'status': 'fail', 'error': 'incorrect old password'})
+    
+    @swagger_auto_schema(operation_summary='取得使用者資料',
+        request_body=None
+    )
     @action(detail=False, methods=['get'])
     def get_user(self, request):
         # check if user is logged in
