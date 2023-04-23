@@ -118,6 +118,13 @@ class LedgerViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = LedgerSerializer
+
+    @swagger_auto_schema(operation_summary='建立帳本',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerName': openapi.Schema(type=openapi.TYPE_STRING, description='帳本名稱'),
+                'LedgerType': openapi.Schema(type=openapi.TYPE_STRING, description='帳本類型'),
+            },),)
     @action(detail=False, methods=['post'])
     def create_ledger(self, request):
         LedgerName = request.data['LedgerName']
@@ -130,13 +137,14 @@ class LedgerViewSet(viewsets.GenericViewSet):
         ledger_access.save()
         return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
     
+    @swagger_auto_schema(operation_summary='取得有觀看權限的帳本資料',
+        request_body=None
+    )
     @action(detail=False, methods=['get'])
     def get_ledgers(self, request):
         # return the ledgers that the user has access by checking the ledger_access table
         ledgers = Ledger.objects.filter(ledgeraccess__UserID=request.user)
         return JsonResponse({'status': 'success', 'ledgers': LedgerSerializer(ledgers, many=True).data})
-    
-
 
 class LedgerAccessViewSet(viewsets.GenericViewSet):
     queryset = LedgerAccess.objects.all()
