@@ -9,7 +9,7 @@ from django.http import JsonResponse
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from drf_yasg import openapi
-
+from django.db import connection
 from bookkeeping_services import user_services
 # user_services.printHello()
 
@@ -142,9 +142,22 @@ class LedgerViewSet(viewsets.GenericViewSet):
     )
     @action(detail=False, methods=['get'])
     def get_ledgers(self, request):
-        # return the ledgers that the user has access by checking the ledger_access table
-        ledgers = Ledger.objects.filter(ledgeraccess__UserID=request.user)
-        return JsonResponse({'status': 'success', 'ledgers': LedgerSerializer(ledgers, many=True).data})
+        # check if user is logged in
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
+        cursor = connection.cursor()
+        cursor.execute("SELECT L.LedgerID, L.LedgerName, L.LedgerType, L.OwnerID_id, LA.AccessLevel FROM api_ledger as L INNER JOIN api_ledgeraccess as LA ON L.LedgerID = LA.LedgerID_id WHERE LA.UserID_id = %s", [request.user.UserID])
+        ledger_with_access = []
+        for row in cursor.fetchall():
+            ledger_with_access.append({
+                'LedgerID': row[0],
+                'LedgerName': row[1],
+                'LedgerType': row[2],
+                'OwnerID': row[3],
+                'AccessLevel': row[4],
+            }
+        )
+        return JsonResponse({'status': 'success', 'ledger_with_access': ledger_with_access})
 
 class LedgerAccessViewSet(viewsets.GenericViewSet):
     queryset = LedgerAccess.objects.all()
