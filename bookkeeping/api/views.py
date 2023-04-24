@@ -91,6 +91,21 @@ class UserViewSet(viewsets.GenericViewSet):
         else:
             return JsonResponse({'status': 'fail', 'error': 'incorrect old password'})
     
+    @swagger_auto_schema(operation_summary='修改使用者資料',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'UserNickname': openapi.Schema(type=openapi.TYPE_STRING, description='使用者暱稱'),
+            },),)
+    @action(detail=False, methods=['put'])
+    def change_user_info(self, request):
+        # check if user is logged in
+        if not request.user.is_authenticated:
+            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
+        user = User.objects.get(UserID=request.user.UserID)
+        if 'UserNickname' in request.data:
+            user.UserNickname = request.data['UserNickname']
+        user.save()
+        return JsonResponse({'status': 'success'})
     @swagger_auto_schema(operation_summary='取得使用者資料',
         request_body=None
     )
@@ -149,8 +164,8 @@ class LedgerViewSet(viewsets.GenericViewSet):
         if not request.user.is_authenticated:
             return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
         ledger_with_access = Ledger.objects.filter(
-        Q(ledgeraccess__UserID_id=request.user.UserID)).values(
-            'LedgerID', 'LedgerName', 'LedgerType', 'OwnerID', AccessLevel=F('ledgeraccess__AccessLevel'))
+            Q(ledgeraccess__UserID_id=request.user.UserID)).values(
+                'LedgerID', 'LedgerName', 'LedgerType', 'OwnerID', AccessLevel=F('ledgeraccess__AccessLevel'))
         return JsonResponse({'status': 'success', 'ledger_with_access': list(ledger_with_access)})
 
 class LedgerAccessViewSet(viewsets.GenericViewSet):
