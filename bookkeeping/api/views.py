@@ -180,11 +180,13 @@ class LedgerViewSet(viewsets.GenericViewSet):
         ledger = Ledger.objects.get(LedgerID=LedgerID)
         if (request.GET.get('with_access_level') != 'true'):
             return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
-        # filter ledger access level for this ledger
-        ledger_access = LedgerAccess.objects.filter(LedgerID=ledger).values('UserID', 'AccessLevel')
+        # filter ledger access level for this ledger and join with user table
+        users_access_list = LedgerAccess.objects.filter(LedgerID=ledger
+            ).values(
+                'UserID', 'AccessLevel', UserName=F('UserID__UserName'), UserNickname=F('UserID__UserNickname'))
         ledger_with_access = {
             "ledger": LedgerSerializer(ledger).data,
-            "ledger_access": list(ledger_access)
+            "users_access_list": list(users_access_list)
         }
         return JsonResponse({'status': 'success', 'ledger_with_access': ledger_with_access  })
 
