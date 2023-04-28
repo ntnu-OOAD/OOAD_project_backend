@@ -243,6 +243,17 @@ class RecordViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = RecordSerializer
+
+    @swagger_auto_schema(operation_summary='新增紀錄資料',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
+                'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型'),
+                'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='價錢'),
+                'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID'),
+                'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
+            },),)    
     @action(detail=False, methods=['post'])
     def create_record(self, request):
         LedgerID = request.data['LedgerID']
@@ -258,9 +269,16 @@ class RecordViewSet(viewsets.GenericViewSet):
         record = Record.objects.create(LedgerID=ledger, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=payby, BoughtDate=BoughtDate)
         record.save()
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
+    
     # get records by ledger with ledgerID as parameter
-    @action(detail=False, methods=['get'])
+    @swagger_auto_schema(operation_summary='取得紀錄所屬帳本',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='紀錄的ID'),
+            },),)    
+    @action(detail=False, methods=['post'])
     def get_records_by_ledger(self, request):
+        RecordID = request.data['RecordID']
         LedgerID = request.GET.get('LedgerID')
         records = Record.objects.filter(LedgerID=LedgerID)
         return JsonResponse({'status': 'success', 'records': RecordSerializer(records, many=True).data})
