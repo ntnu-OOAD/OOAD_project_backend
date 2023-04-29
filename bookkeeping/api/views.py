@@ -12,10 +12,11 @@ from drf_yasg import openapi
 from django.db import connection
 from django.db.models import Q, F
 
-# from bookkeeping_services import user_services
-# user_services.printHello()
+from apiServices import UserService
+
 
 class UserViewSet(viewsets.GenericViewSet):
+    service = UserService.UserService()
     queryset = User.objects.all()
     permission_classes = [
         permissions.AllowAny
@@ -31,25 +32,19 @@ class UserViewSet(viewsets.GenericViewSet):
             },),)
     @action(detail=False, methods=['post'] )
     def login(self, request):
-        UserName = request.data['UserName']
-        password = request.data['password']
-        user = authenticate(UserName=UserName, password=password)
-        if user is not None:
-            login(request, user)
-            return JsonResponse({'status': 'success'})
-        else:
-            return JsonResponse({'status': 'fail'})
+        user_param = User(
+            UserName=request.data.get('UserName'), 
+            password=request.data.get('password'))
+        result = self.service.login(request, user_param)
+        return JsonResponse(result)
 
     @swagger_auto_schema(operation_summary='登出',
         request_body=None
     )
     @action(detail=False, methods=['post'])
     def logout(self, request):
-        # check if user is logged in
-        if not request.user.is_authenticated:
-            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
-        logout(request)
-        return JsonResponse({'status': 'success'})
+        result = self.service.logout(request)
+        return JsonResponse(result)
 
     @swagger_auto_schema(operation_summary='註冊',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
@@ -60,16 +55,14 @@ class UserViewSet(viewsets.GenericViewSet):
             },),)
     @action(detail=False, methods=['post'])
     def register(self, request):
-        UserName = request.data['UserName']
-        UserNickname = request.data['UserNickname']
-        password = request.data['password']
-        # check if UserID is already taken
-        if User.objects.filter(UserName=UserName).exists():
-            return JsonResponse({'status': 'fail', 'error': 'UserName already taken'})
-        user = User.objects.create_user(UserName=UserName, UserNickname=UserNickname, password=password)
-        user.save()
-        return JsonResponse({'status': 'success'})
-
+        user_param = User(
+            UserName=request.data.get('UserName'), 
+            UserNickname=request.data.get('UserNickname'),
+            password=request.data.get('password')
+        )
+        result = self.service.register(user_param)
+        return JsonResponse(result)
+        
     @swagger_auto_schema(operation_summary='修改密碼',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
@@ -78,19 +71,12 @@ class UserViewSet(viewsets.GenericViewSet):
             },),)
     @action(detail=False, methods=['put'])
     def change_password(self, request):
-        # check if user is logged in
-        if not request.user.is_authenticated:
-            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
-        old_password = request.data['old_password']
-        new_password = request.data['new_password']
-        user = User.objects.get(UserID=request.user.UserID)
-        if user.check_password(old_password):
-            user.set_password(new_password)
-            user.save()
-            return JsonResponse({'status': 'success'})
-        else:
-            return JsonResponse({'status': 'fail', 'error': 'incorrect old password'})
-    
+        old_password = request.data.get('old_password')
+        new_password = request.data.get('new_password')
+        user_param = request.user
+        result = self.service.change_password(user_param, old_password, new_password)
+        return JsonResponse(result)
+
     @swagger_auto_schema(operation_summary='修改使用者資料',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
@@ -98,25 +84,20 @@ class UserViewSet(viewsets.GenericViewSet):
             },),)
     @action(detail=False, methods=['put'])
     def change_user_info(self, request):
-        # check if user is logged in
-        if not request.user.is_authenticated:
-            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
-        user = User.objects.get(UserID=request.user.UserID)
-        if 'UserNickname' in request.data:
-            user.UserNickname = request.data['UserNickname']
-        user.save()
-        return JsonResponse({'status': 'success'})
+        user_param = request.user
+        user_param.UserNickname = request.data.get('UserNickname')
+        result = self.service.change_user_info(user_param)
+        return JsonResponse(result)
+
     @swagger_auto_schema(operation_summary='取得使用者資料',
         request_body=None
     )
     @action(detail=False, methods=['get'])
     def get_user(self, request):
-        # check if user is logged in
-        if not request.user.is_authenticated:
-            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
-        user = User.objects.get(UserID=request.user.UserID)
-        return JsonResponse({'status': 'success', 'user': UserSerializer(user).data})
-    
+        user_param = request.user
+        result = self.service.get_user_by_id(user_param)
+        return JsonResponse(result)
+
     @swagger_auto_schema(
         operation_summary='根據 UserName 取得 UserID',
         manual_parameters=[
@@ -124,12 +105,12 @@ class UserViewSet(viewsets.GenericViewSet):
         ],
         )
     @action(detail=False, methods=['get'])
-    def get_userid_from_username(self, request):
-        UserName = request.GET.get('UserName')
-        user = User.objects.get(UserName=UserName)
-        return JsonResponse({'status': 'success', 'UserID': user.UserID})
-
-
+    def get_user_from_username(self, request):
+        user_param = User(
+            UserName=request.GET.get('UserName'))
+        result = self.service.get_userid_by_username(user_param)
+        return JsonResponse(result)
+        
 class LedgerViewSet(viewsets.GenericViewSet):
     queryset = Ledger.objects.all()
     permission_classes = [
