@@ -14,11 +14,12 @@ class UserService:
             return {'status': 'fail', 'message': 'Username or password is incorrect.'}
     @staticmethod
     def logout(request):
-        result = logout(request)
-        if result:
-            return {'status': 'success', 'message': 'Logout successfully.'}
-        else:
+        original_user = request.user
+        logout(request)
+        if request.user == original_user:
             return {'status': 'fail', 'message': 'Logout failed.'}
+        else:
+            return {'status': 'success', 'message': 'Logout successfully.'}
     
     def register(self, user_param):
         if(self.Dao.get_userid_by_username(user_param.UserName)):
