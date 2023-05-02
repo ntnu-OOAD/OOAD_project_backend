@@ -224,8 +224,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = RecordSerializer
-
-    @swagger_auto_schema(operation_summary='新增紀錄資料',
+    @swagger_auto_schema(operation_summary='新增紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
                 'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
@@ -251,15 +250,60 @@ class RecordViewSet(viewsets.GenericViewSet):
         record.save()
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
     
-    # get records by ledger with ledgerID as parameter
-    @swagger_auto_schema(operation_summary='取得紀錄所屬帳本',
+    #delete record
+    @swagger_auto_schema(operation_summary='刪除紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
-                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='紀錄的ID'),
+                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='要刪除的RecordID'),
             },),)    
     @action(detail=False, methods=['post'])
-    def get_records_by_ledger(self, request):
+    def delete_record(self, request):
         RecordID = request.data['RecordID']
+        record = Record.objects.get(RecordID=RecordID)
+        record.delete()
+        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
+    
+    #update_record
+    @swagger_auto_schema(operation_summary='修改紀錄資料',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的紀錄ID'),
+                'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型'),
+                'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='價錢'),
+                'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型'),
+                'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買物品時間'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def update_record(self, request):
+        RecordID = request.data['RecordID']
+        record = Record.objects.get(RecordID=RecordID)
+        # check if user have Owner access level to the ledger
+        #if(record.recordaccess_set.filter(UserID=request.user.UserID, AccessLevel="Owner").exists() == False):
+        #    return JsonResponse({'status': 'fail', 'error': 'user have no access to the ledger'})
+        if 'ItemName' in request.data:
+            record.ItemName = request.data['ItemName']
+        if 'ItemType' in request.data:
+            record.ItemType = request.data['ItemType']
+        if 'Cost' in request.data :
+            record.Cost = request.data['Cost']
+        if 'Payby' in request.data:
+            payby=request.data['Payby']
+            record.Payby = User.objects.get(UserID=payby)
+        if 'BoughtDate' in request.data:
+            record.BoughtDate = request.data['BoughtDate']
+        record.save()
+        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
+    
+    # get records by ledger with ledgerID as parameter
+    @swagger_auto_schema(operation_summary='取得單一帳本所有紀錄',
+        manual_parameters=[
+            openapi.Parameter('LedgerID', openapi.IN_QUERY, description="Ledger ID", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_records_by_ledger(self, request):
         LedgerID = request.GET.get('LedgerID')
         records = Record.objects.filter(LedgerID=LedgerID)
         return JsonResponse({'status': 'success', 'records': RecordSerializer(records, many=True).data})
+    
