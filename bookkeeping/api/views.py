@@ -12,7 +12,7 @@ from drf_yasg import openapi
 from django.db import connection
 from django.db.models import Q, F
 
-from apiServices import UserService
+from apiServices import UserService, LedgerService
 
 
 class UserViewSet(viewsets.GenericViewSet):
@@ -112,6 +112,7 @@ class UserViewSet(viewsets.GenericViewSet):
         return JsonResponse(result)
         
 class LedgerViewSet(viewsets.GenericViewSet):
+    service = LedgerService.LedgerService()
     queryset = Ledger.objects.all()
     permission_classes = [
         permissions.IsAuthenticated
@@ -126,29 +127,25 @@ class LedgerViewSet(viewsets.GenericViewSet):
             },),)
     @action(detail=False, methods=['post'])
     def create_ledger(self, request):
-        LedgerName = request.data['LedgerName']
-        LedgerType = request.data['LedgerType']
-        OwnerID = request.user.UserID
-        user = User.objects.get(UserID=OwnerID)
-        ledger = Ledger.objects.create( OwnerID=user, LedgerName=LedgerName, LedgerType=LedgerType)
-        ledger.save()
-        ledger_access = LedgerAccess.objects.create(LedgerID=ledger, UserID=user, AccessLevel="Owner")
-        ledger_access.save()
-        return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
-    
+        user_param = User(
+            UserID = request.user.UserID
+        )
+        ledger_param = Ledger(
+            LedgerName=request.data.get('LedgerName'), 
+            LedgerType=request.data.get('LedgerType')
+        )
+        result = self.service.create_ledger(user_param, ledger_param)
+        return JsonResponse(result)
+        
     @swagger_auto_schema(operation_summary='取得有觀看權限的帳本資料',
         request_body=None
     )
     @action(detail=False, methods=['get'])
     def get_ledgers(self, request):
-        # check if user is logged in
-        if not request.user.is_authenticated:
-            return JsonResponse({'status': 'fail', 'error': 'user not logged in'})
-        ledger_with_access = Ledger.objects.filter(
-            Q(ledgeraccess__UserID_id=request.user.UserID)).values(
-                'LedgerID', 'LedgerName', 'LedgerType', 'OwnerID', AccessLevel=F('ledgeraccess__AccessLevel'))
-        return JsonResponse({'status': 'success', 'ledger_with_access': list(ledger_with_access)})
-
+        user = request.user
+        result = self.service.get_ledgers(user)
+        return JsonResponse(result)
+        
     @swagger_auto_schema(operation_summary='取得單一帳本詳細資料及有權限的使用者資料(optional)',
         manual_parameters=[
             openapi.Parameter('LedgerID', openapi.IN_QUERY, description="Ledger ID", type=openapi.TYPE_STRING),
@@ -157,41 +154,30 @@ class LedgerViewSet(viewsets.GenericViewSet):
         )
     @action(detail=False, methods=['get'])
     def get_ledger_info(self, request):
-        LedgerID = request.GET.get('LedgerID')
-        ledger = Ledger.objects.get(LedgerID=LedgerID)
-        if (request.GET.get('with_access_level') != 'true'):
-            return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
-        # filter ledger access level for this ledger and join with user table
-        users_access_list = LedgerAccess.objects.filter(LedgerID=ledger
-            ).values(
-                'UserID', 'AccessLevel', UserName=F('UserID__UserName'), UserNickname=F('UserID__UserNickname'))
-        ledger_with_access = {
-            "ledger": LedgerSerializer(ledger).data,
-            "users_access_list": list(users_access_list)
-        }
-        return JsonResponse({'status': 'success', 'ledger_with_access': ledger_with_access  })
+        ledger_param = Ledger(
+            LedgerID = request.GET.get('LedgerID')
+        )
+        user_param = request.user
+        with_access_level = request.GET.get('with_access_level')
+        result = self.service.get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level=with_access_level)
+        return JsonResponse(result)
 
+        
     @swagger_auto_schema(operation_summary='修改帳本資料',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
-                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的帳本ID'),
+                'LedgerID': openapi.Schema(type=openapi.TYPE_INTEGER, description='要修改的帳本ID'),
                 'LedgerName': openapi.Schema(type=openapi.TYPE_STRING, description='帳本名稱'),
-                'LedgerType': openapi.Schema(type=openapi.TYPE_STRING, description='帳本類型'),
             },),)    
     @action(detail=False, methods=['post'])
     def update_ledger(self, request):
         LedgerID = request.data['LedgerID']
-        ledger = Ledger.objects.get(LedgerID=LedgerID)
-        # check if user have Owner access level to the ledger
-        if(ledger.ledgeraccess_set.filter(UserID=request.user.UserID, AccessLevel="Owner").exists() == False):
-            return JsonResponse({'status': 'fail', 'error': 'user have no access to the ledger'})
-        if 'LedgerName' in request.data:
-            ledger.LedgerName = request.data['LedgerName']
-        if 'LedgerType' in request.data:
-            ledger.LedgerType = request.data['LedgerType']
-        ledger.save()
-        return JsonResponse({'status': 'success', 'ledger': LedgerSerializer(ledger).data})
-
+        ledger = Ledger(
+            LedgerID=LedgerID, 
+            LedgerName=request.data.get('LedgerName'),
+        )
+        result = self.service.update_ledger(user_param=request.user, ledger_param=ledger)
+        return JsonResponse(result)
 
 class LedgerAccessViewSet(viewsets.GenericViewSet):
     queryset = LedgerAccess.objects.all()
