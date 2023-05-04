@@ -292,4 +292,71 @@ class RecordViewSet(viewsets.GenericViewSet):
         LedgerID = request.GET.get('LedgerID')
         records = Record.objects.filter(LedgerID=LedgerID)
         return JsonResponse({'status': 'success', 'records': RecordSerializer(records, many=True).data})
+class ReceiptViewSet(viewsets.GenericViewSet):
+    queryset = Receipt.objects.all()
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+    serializer_class = ReceiptSerializer
+    @swagger_auto_schema(operation_summary='新增發票',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='新增發票之所屬紀錄ID'),
+                'StatusCode': openapi.Schema(type=openapi.TYPE_STRING, description='發票號碼(8位數字)'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def add_receipt(self, request):
+        RecordID = request.data['RecordID']
+        if(Receipt.objects.filter(RecordID=RecordID).exists()):
+            return JsonResponse({'status': 'fail', 'error': 'This recordID\'s receipt already exist'})
+        try:
+            record = Record.objects.get(RecordID=RecordID)
+        except Record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'record does not exist'})
+        StatusCode = request.data['StatusCode']
+        if(len(StatusCode) != 8 or StatusCode.isnumeric()==False):
+            return JsonResponse({'status': 'fail', 'error': 'Statuscode does not legal! Need 8 numbers.'})
+        BuyDate = record.BoughtDate
+        receipt = Receipt.objects.create(RecordID=record, BuyDate=BuyDate, StatusCode=StatusCode)
+        receipt.save()
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
+
+    @swagger_auto_schema(operation_summary='刪除發票',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'ReceiptID': openapi.Schema(type=openapi.TYPE_STRING, description='要刪除的ReceiptID'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def delete_receipt(self, request):
+        ReceiptID = request.data['ReceiptID']
+        try:
+            receipt = Receipt.objects.get(ReceiptID=ReceiptID)
+        except Receipt.DoesNotExist:
+            receipt = None
+        if(receipt is None):
+            return JsonResponse({'status': 'fail', 'error': 'receipt does not exist'})
+        receipt.delete()
+        return JsonResponse({'status': 'success', 'record': ReceiptSerializer(receipt).data})
     
+    @swagger_auto_schema(operation_summary='修改發票號碼',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'ReceiptID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的發票ID'),
+                'StatusCode': openapi.Schema(type=openapi.TYPE_STRING, description='發票號碼(8位數字)'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def update_receipt_statusCode(self, request):
+        ReceiptID = request.data['ReceiptID']
+        receipt = Receipt.objects.get(ReceiptID=ReceiptID)
+        # check if user have Owner access level to the ledger
+        #if(record.recordaccess_set.filter(UserID=request.user.UserID, AccessLevel="Owner").exists() == False):
+        #    return JsonResponse({'status': 'fail', 'error': 'user have no access to the ledger'})
+        StatusCode=request.data['StatusCode']
+        if(len(StatusCode) != 8 or StatusCode.isnumeric()==False):
+            return JsonResponse({'status': 'fail', 'error': 'Statuscode does not legal! Need 8 numbers.'})
+        if 'StatusCode' in request.data:
+            receipt.StatusCode = StatusCode
+        receipt.save()
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})

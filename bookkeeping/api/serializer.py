@@ -21,3 +21,8 @@ class RecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = Record
         fields = ['RecordID', 'LedgerID', 'ItemName', 'ItemType', 'Cost', 'Payby', 'BoughtDate']
+
+class ReceiptSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Receipt
+        fields = ['ReceiptID', 'RecordID', 'BuyDate', 'StatusCode']
