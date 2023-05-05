@@ -15,6 +15,11 @@ class LedgerDao:
         except:
             return None
     @staticmethod
+    def get_ledger_by_id(ledger_param):
+        ledger = Ledger.objects.filter(LedgerID=ledger_param).first()
+        return ledger
+           
+    @staticmethod
     def get_all_ledgers(user_param):
         ledger_with_access = Ledger.objects.filter(
             Q(ledgeraccess__UserID_id=user_param.UserID)).values(

@@ -4,6 +4,34 @@ from django.db import transaction
 from api.serializer import *
 from functools import wraps
 
+# Decorator for checking ledger access
+# 檢查使用者是否有權限存取該帳本
+# 使用者部分優先使用 requested_user_param，若無則使用 user_param
+    
+def check_ledger_access(AccessLevel=[]):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            self_ = args[0]
+            user = None
+            ledger = None
+            if 'user_param' in kwargs:
+                user = kwargs['user_param']
+            if 'requested_user_param' in kwargs:
+                user = kwargs['requested_user_param']
+            if 'ledger_param' in kwargs:
+                ledger = kwargs['ledger_param']
+            if 'record_param' in kwargs:
+                record = kwargs['record_param']
+                ledger = record.LedgerID
+            user_access = LedgerAccess.objects.filter(UserID=user, LedgerID=ledger).first()
+            if user_access is None or user_access.AccessLevel not in AccessLevel:
+                return {'status': 'fail', 'message': f'You have no access to this ledger method, only {", ".join([str(i) for i in AccessLevel])} can access this ledger'}
+            else:
+                return func(*args, **kwargs)
+        return wrapper
+    return decorator
+
 class LedgerService:
     UserDao = UserDao.UserDao()
     LedgerDao = LedgerDao.LedgerDao()
@@ -11,32 +39,6 @@ class LedgerService:
     def __init__(self):
         pass
     
-    # Decorator for checking ledger access
-    @staticmethod
-    def check_ledger_access(AccessLevel=[]):
-        def decorator(func):
-            @wraps(func)
-            def wrapper(*args, **kwargs):
-                self_ = args[0]
-                user = None
-                ledger = None
-                if 'user_param' in kwargs:
-                    user = kwargs['user_param']
-                if 'ledger_param' in kwargs:
-                    ledger = kwargs['ledger_param']
-                if 'record_param' in kwargs:
-                    record = kwargs['record_param']
-                    ledger = record.LedgerID
-                user_access = LedgerAccess.objects.filter(UserID=user, LedgerID=ledger).first()
-                if user_access is None or user_access.AccessLevel not in AccessLevel:
-                    return {'status': 'fail', 'message': f'You have no access to this ledger method, only {", ".join([str(i) for i in AccessLevel])} can access this ledger'}
-                else:
-                    return func(*args, **kwargs)
-            return wrapper
-        return decorator
-    
-
-
     def create_ledger(self, user_param, ledger_param):
         user = self.UserDao.get_user_by_id(user_param.UserID)
         if user is None:
@@ -74,3 +76,4 @@ class LedgerService:
             return {'status': 'fail', 'message': 'Ledger update failed'}
         else:
             return {'status': 'success', 'message': 'Ledger updated successfully'}
+

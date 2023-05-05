@@ -12,7 +12,7 @@ from drf_yasg import openapi
 from django.db import connection
 from django.db.models import Q, F
 
-from apiServices import UserService, LedgerService
+from apiServices import UserService, LedgerService, LedgerAccessService
 
 
 class UserViewSet(viewsets.GenericViewSet):
@@ -184,25 +184,59 @@ class LedgerAccessViewSet(viewsets.GenericViewSet):
     permission_classes = [
         permissions.IsAuthenticated
     ]
+    service = LedgerAccessService.LedgerAccessService()
     serializer_class = LedgerAccessSerializer
+    @swagger_auto_schema(operation_summary='新增帳本權限',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='帳本ID'),
+                'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='使用者ID'),
+                'AccessLevel': openapi.Schema(type=openapi.TYPE_STRING, description='權限等級'),
+            },),)
     @action(detail=False, methods=['post'])
     def create_ledger_access(self, request):
-        LedgerID = request.data['LedgerID']
-        ledger = Ledger.objects.get(LedgerID=LedgerID)
-        UserID = request.data['UserID']
-        user = User.objects.get(UserID=UserID)
-        AccessLevel = request.data['AccessLevel']
-        # check if user have Owner or Coll access level to the ledger
-        if(ledger.ledgeraccess_set.filter(UserID=request.user.UserID, AccessLevel__in=["Owner", "Coll"]).exists() == False):
-            return JsonResponse({'status': 'fail', 'error': 'user have no access to the ledger'})
-        # check if user or ledger does not exist
-        if(ledger is None or user is None):
-            return JsonResponse({'status': 'fail', 'error': 'user or ledger does not exist'})
-        ledger_access = LedgerAccess.objects.create(LedgerID=ledger, UserID=user, AccessLevel=AccessLevel)
-        ledger_access.save()
-        return JsonResponse({'status': 'success', 'ledger_access': LedgerAccessSerializer(ledger_access).data})
+        ledger_param = Ledger(LedgerID = request.data.get('LedgerID'))
+        user_param = User(UserID = request.data.get('UserID'))
+        requested_user_param = request.user
+        AccessLevel = request.data.get('AccessLevel')
+        result = self.service.create_ledger_access(
+            requested_user_param=requested_user_param, ledger_param=ledger_param, 
+            user_param=user_param, AccessLevel=AccessLevel)
+        return JsonResponse(result)
+    
+    @swagger_auto_schema(operation_summary='修改帳本權限',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='帳本ID'),
+                'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='使用者ID'),
+                'AccessLevel': openapi.Schema(type=openapi.TYPE_STRING, description='權限等級'),
+            },),)
+    @action(detail=False, methods=['post'])
+    def update_ledger_access(self, request):
+        ledger_param = Ledger(LedgerID = request.data.get('LedgerID'))
+        user_param = User(UserID = request.data.get('UserID'))
+        requested_user_param = request.user
+        AccessLevel = request.data.get('AccessLevel')
+        result = self.service.update_ledger_access(
+            requested_user_param=requested_user_param, ledger_param=ledger_param, 
+            user_param=user_param, AccessLevel=AccessLevel)
+        return JsonResponse(result)
 
-
+    @swagger_auto_schema(operation_summary='刪除帳本權限',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='帳本ID'),
+                'UserID': openapi.Schema(type=openapi.TYPE_STRING, description='使用者ID'),
+            },),)
+    @action(detail=False, methods=['post'])
+    def delete_ledger_access(self, request):
+        ledger_param = Ledger(LedgerID = request.data.get('LedgerID'))
+        user_param = User(UserID = request.data.get('UserID'))
+        requested_user_param = request.user
+        result = self.service.delete_ledger_access(
+            requested_user_param=requested_user_param, ledger_param=ledger_param, 
+            user_param=user_param)
+        return JsonResponse(result)
 
 class RecordViewSet(viewsets.GenericViewSet):
     queryset = Record.objects.all()
