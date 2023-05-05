@@ -42,38 +42,37 @@ class LedgerService:
     def create_ledger(self, user_param, ledger_param):
         user = self.UserDao.get_user_by_id(user_param.UserID)
         if user is None:
-            return {'status': 'fail', 'message': 'User not found'}
+            return {'status': 'fail', 'message': 'User not found', 'ledger': None}
         ledger_param.OwnerID = user
         with transaction.atomic():
             ledger = self.LedgerDao.create_ledger(user_param, ledger_param)
             ledger_access = self.LedgerAccessDao.create_ledger_access(user_param, ledger, 'Owner')
         if ledger is None or ledger_access is None:
-            return {'status': 'fail', 'message': 'Ledger creation failed'}
+            return {'status': 'fail', 'message': 'Ledger creation failed', 'ledger': None}
         else:
-            return {'status': 'success', 'message': 'Ledger created successfully'}
+            return {'status': 'success', 'message': 'Ledger created successfully', 'ledger': LedgerSerializer(ledger).data}
 
     def get_ledgers(self, user_param):
         result = self.LedgerDao.get_all_ledgers(user_param)
-        return {'status': 'success', 'message': 'Ledger list retrieved successfully', 'data': result}
+        return {'status': 'success', 'message': 'Ledger list retrieved successfully', 'ledger_with_access': result}
 
     @check_ledger_access(AccessLevel=['Viewer', 'Editor', 'Owner'])
     def get_ledger_info(self, user_param, ledger_param, with_access_level=False):
         result = self.LedgerDao.get_ledger_info(ledger_param, with_access_level=with_access_level)
         if result is None:
-            return {'status': 'fail', 'message': 'Ledger not found'}
+            return {'status': 'fail', 'message': 'Ledger not found', 'ledger_with_access': None}
         else:
-            return {'status': 'success', 'ledger_with_access': result}
+            return {'status': 'success', 'message': 'Ledger found', 'ledger_with_access': result}
 
-    @check_ledger_access(AccessLevel=['Viewer', 'Editor'])
+    @check_ledger_access(AccessLevel=['Owner', 'Viewer', 'Editor'])
     def update_ledger(self, user_param, ledger_param):
-        ledger_info = self.LedgerDao.get_ledger_info(ledger_param)
-        if ledger_info is None:
-            return {'status': 'fail', 'message': 'Ledger not found'}
-        ledger = ledger_info['ledger']
+        ledger = self.LedgerDao.get_ledger_by_id(ledger_param)
+        if ledger is None:
+            return {'status': 'fail', 'message': 'Ledger not found', 'ledger': None}
         ledger.LedgerName = ledger_param.LedgerName
         result = self.LedgerDao.update_ledger(ledger)
         if result is None:
-            return {'status': 'fail', 'message': 'Ledger update failed'}
+            return {'status': 'fail', 'message': 'Ledger update failed', 'ledger': None}
         else:
-            return {'status': 'success', 'message': 'Ledger updated successfully'}
+            return {'status': 'success', 'message': 'Ledger updated successfully', 'ledger': LedgerSerializer(result).data}
 

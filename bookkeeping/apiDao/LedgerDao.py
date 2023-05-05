@@ -27,20 +27,9 @@ class LedgerDao:
         return list(ledger_with_access)
     
     @staticmethod
-    def get_ledger_info(ledger_param, with_access_level=False):
+    def get_ledger_by_id(ledger_param):
         ledger = Ledger.objects.filter(LedgerID=ledger_param.LedgerID).first()
-        if ledger is None:
-            return None
-        users_access_list = []
-        if with_access_level:
-            users_access_list = LedgerAccess.objects.filter(LedgerID=ledger
-            ).values(
-                'UserID', 'AccessLevel', UserName=F('UserID__UserName'), UserNickname=F('UserID__UserNickname'))
-        ledger_with_access = {
-            "ledger": ledger,
-            "users_access_list": list(users_access_list)
-        }
-        return ledger_with_access
+        return ledger
 
     @staticmethod
     def get_ledger_info(ledger_param, with_access_level=False):
