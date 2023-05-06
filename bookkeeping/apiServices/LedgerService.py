@@ -76,3 +76,13 @@ class LedgerService:
         else:
             return {'status': 'success', 'message': 'Ledger updated successfully', 'ledger': LedgerSerializer(result).data}
 
+    @check_ledger_access(AccessLevel=['Owner'])
+    def delete_ledger(self, user_param, ledger_param):
+        ledger = self.LedgerDao.get_ledger_by_id(ledger_param)
+        if ledger is None:
+            return {'status': 'fail', 'message': 'Ledger not found', 'ledger': None}
+        result = self.LedgerDao.delete_ledger(ledger)
+        if result is None or False:
+            return {'status': 'fail', 'message': 'Ledger deletion failed', 'ledger': None}
+        else:
+            return {'status': 'success', 'message': 'Ledger deleted successfully', 'ledger': None}

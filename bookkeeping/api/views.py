@@ -179,6 +179,20 @@ class LedgerViewSet(viewsets.GenericViewSet):
         result = self.service.update_ledger(user_param=request.user, ledger_param=ledger)
         return JsonResponse(result)
 
+    @swagger_auto_schema(operation_summary='刪除帳本',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_INTEGER, description='要刪除的帳本ID'),
+            },),)
+    @action(detail=False, methods=['post'])
+    def delete_ledger(self, request):
+        ledger = Ledger(
+            LedgerID=request.data.get('LedgerID')
+        )
+        result = self.service.delete_ledger(user_param=request.user, ledger_param=ledger)
+        return JsonResponse(result)
+        
+
 class LedgerAccessViewSet(viewsets.GenericViewSet):
     queryset = LedgerAccess.objects.all()
     permission_classes = [

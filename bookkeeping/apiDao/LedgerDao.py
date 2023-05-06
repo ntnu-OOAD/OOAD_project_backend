@@ -53,3 +53,10 @@ class LedgerDao:
             return ledger_param
         except:
             return None
+    @staticmethod
+    def delete_ledger(ledger_param):
+        try:
+            ledger_param.delete()
+            return True
+        except:
+            return False
