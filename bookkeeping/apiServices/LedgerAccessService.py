@@ -13,7 +13,7 @@ class LedgerAccessService:
     @check_ledger_access(['Owner'])
     def create_ledger_access(self, requested_user_param, user_param, ledger_param, AccessLevel):
         user_param = self.UserDao.get_user_by_id(user_param.UserID)
-        ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param.LedgerID)
+        ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param)
         if user_param is None:
             return {'status': 'fail', 'message': 'User not found'}
         if ledger_param is None:
@@ -29,7 +29,7 @@ class LedgerAccessService:
     @check_ledger_access(['Owner'])
     def update_ledger_access(self, requested_user_param, user_param, ledger_param, AccessLevel):
         user_param = self.UserDao.get_user_by_id(user_param.UserID)
-        ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param.LedgerID)
+        ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param)
         if user_param is None:
             return {'status': 'fail', 'message': 'User not found'}
         if ledger_param is None:
@@ -44,12 +44,12 @@ class LedgerAccessService:
         if result is None:
             return {'status': 'fail', 'message': 'Ledger access update failed'}
         else:
-            return {'status': 'success', 'message': 'Ledger access created successfully'}
+            return {'status': 'success', 'message': 'Ledger access update successfully'}
 
     @check_ledger_access(['Owner'])
     def delete_ledger_access(self, requested_user_param, user_param, ledger_param):
         user_param = self.UserDao.get_user_by_id(user_param.UserID)
-        ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param.LedgerID)
+        ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param)
         if user_param is None:
             return {'status': 'fail', 'message': 'User not found'}
         if ledger_param is None:
