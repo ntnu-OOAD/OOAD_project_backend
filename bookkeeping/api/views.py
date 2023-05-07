@@ -416,14 +416,20 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     def get_receipts(self, request):
         user = request.user
         ledger_list = Ledger.objects.filter(OwnerID = user.UserID)
+        if(ledger_list.count() == 0):
+            return JsonResponse({'status': 'fail', 'error': 'User has no ledger'})
         #取得使用者自己所有ledger之record
         ledger_filter = Q()
         for ledger in ledger_list:
              ledger_filter = ledger_filter | Q(LedgerID=ledger.LedgerID)
         record_list=Record.objects.filter(ledger_filter)
+        if(record_list.count() == 0):
+            return JsonResponse({'status': 'fail', 'error': 'User has no record'})
         #取得使用者自己所有record之receipt
         record_filter = Q()
         for record in record_list:
              record_filter = record_filter | Q(RecordID=record.RecordID)
         receipts=Receipt.objects.filter(record_filter)
+        if(receipts.count() == 0):
+            return JsonResponse({'status': 'fail', 'error': 'User has no receipt'})
         return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipts, many=True).data})
