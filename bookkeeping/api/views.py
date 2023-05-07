@@ -408,3 +408,22 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             receipt.StatusCode = StatusCode
         receipt.save()
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
+    
+    @swagger_auto_schema(operation_summary='取得使用者自己（有觀看權限）的所有發票',
+         request_body=None
+        )    
+    @action(detail=False, methods=['get'])
+    def get_receipts(self, request):
+        user = request.user
+        ledger_list = Ledger.objects.filter(OwnerID = user.UserID)
+        #取得使用者自己所有ledger之record
+        ledger_filter = Q()
+        for ledger in ledger_list:
+             ledger_filter = ledger_filter | Q(LedgerID=ledger.LedgerID)
+        record_list=Record.objects.filter(ledger_filter)
+        #取得使用者自己所有record之receipt
+        record_filter = Q()
+        for record in record_list:
+             record_filter = record_filter | Q(RecordID=record.RecordID)
+        receipts=Receipt.objects.filter(record_filter)
+        return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipts, many=True).data})
