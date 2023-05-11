@@ -26,3 +26,7 @@ class ReceiptSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receipt
         fields = ['ReceiptID', 'RecordID', 'BuyDate', 'StatusCode']
+class SharePaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SharePay
+        fields = ['ShouldPay', 'RecordID', 'ShareUser']

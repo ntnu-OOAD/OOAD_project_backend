@@ -433,3 +433,39 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         if(receipts.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'User has no receipt'})
         return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipts, many=True).data})
+    
+    @swagger_auto_schema(operation_summary='取得紀錄之發票',
+        manual_parameters=[
+            openapi.Parameter('RecordID', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_receipt_by_recordID(self, request):
+        RecordID = request.GET.get('RecordID')
+        receipt = Receipt.objects.filter(RecordID=RecordID)
+        return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipt, many=True).data})
+
+class SharePayViewSet(viewsets.GenericViewSet):
+    queryset = SharePay.objects.all()
+    permission_classes = [
+        permissions.IsAuthenticated
+    ]
+    serializer_class = SharePaySerializer
+    @swagger_auto_schema(operation_summary='新增分帳',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='分帳紀錄ID'),
+                'ShouldPay': openapi.Schema(type=openapi.TYPE_STRING, description='已分帳後金額'),
+                'ShareUserID': openapi.Schema(type=openapi.TYPE_STRING, description='分帳者ID'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def add_sharepay(self, request):
+        RecordID = request.data['RecordID']
+        record = Record.objects.get(RecordID = RecordID)
+        ShouldPay = request.data['ShouldPay']
+        ShareUserID = request.data['ShareUserID']
+        share_user=User.objects.get(UserID = ShareUserID)
+        sharepay = SharePay.objects.create(RecordID=record, ShouldPay=ShouldPay, ShareUser = share_user)
+        sharepay.save()
+        return JsonResponse({'status': 'success', 'sharepay': SharePaySerializer(sharepay).data})
+   
