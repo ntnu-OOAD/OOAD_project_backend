@@ -258,7 +258,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = RecordSerializer
-    @swagger_auto_schema(operation_summary='新增紀錄',
+    @swagger_auto_schema(operation_summary='新增個人帳本紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
                 'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
@@ -288,6 +288,62 @@ class RecordViewSet(viewsets.GenericViewSet):
         record.save()
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
     
+    @swagger_auto_schema(operation_summary='新增分帳紀錄',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
+                'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（收入/支出）'),
+                'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
+                'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID(若空,則為create record者)'),
+                'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
+                'ShareUsers': openapi.Schema(type=openapi.TYPE_ARRAY
+                    ,items=openapi.Items(type=openapi.TYPE_STRING), description='分帳者們'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def create_sharepay_record(self, request):
+        LedgerID = request.data['LedgerID']
+        ItemName = request.data['ItemName']
+        ItemType = request.data['ItemType']
+        Cost = request.data['Cost']
+        Payby = request.data['Payby']
+        if(Payby ==''):
+            Payby=request.user.UserID
+        if(ItemType=="支出"):
+            Cost=int(Cost)*(-1)
+        BoughtDate = request.data['BoughtDate']
+        if(BoughtDate == ''):
+            BoughtDate = datetime.now()
+        ledger = Ledger.objects.get(LedgerID=LedgerID)
+        payby = User.objects.get(UserID=Payby)
+        record = Record.objects.create(LedgerID=ledger, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=payby, BoughtDate=BoughtDate)
+        record.save()
+        
+        array_shareUsers = request.data.get('ShareUsers')
+        l=0
+        for item in array_shareUsers:
+            l+=1
+        cost=int(Cost)
+        #付錢者
+        sharepay = SharePay(
+                ShouldPay = cost*(-1),
+                RecordID = record,
+                ShareUser = payby
+            )
+        SharePayViewSet.add_sharepay(self, request=sharepay)
+        #分帳者
+        for item in array_shareUsers:
+            print(item)
+            sharepay = SharePay(
+                ShouldPay = cost/l,
+                RecordID = record,
+                ShareUser = User.objects.get(UserID=item)
+            )
+            SharePayViewSet.add_sharepay(self, request=sharepay)
+
+
+        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
+    
     #delete record
     @swagger_auto_schema(operation_summary='刪除紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
@@ -302,7 +358,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
     
     #update_record
-    @swagger_auto_schema(operation_summary='修改紀錄資料',
+    @swagger_auto_schema(operation_summary='修改個人紀錄資料',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
                 'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的紀錄ID'),
@@ -499,6 +555,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         RecordID = request.GET.get('RecordID')
         receipt = Receipt.objects.filter(RecordID=RecordID)
         return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipt, many=True).data})
+    
 
 class SharePayViewSet(viewsets.GenericViewSet):
     queryset = SharePay.objects.all()
@@ -506,21 +563,52 @@ class SharePayViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = SharePaySerializer
-    @swagger_auto_schema(operation_summary='新增分帳',
-        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
-            properties={
-                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='分帳紀錄ID'),
-                'ShouldPay': openapi.Schema(type=openapi.TYPE_STRING, description='已分帳後金額'),
-                'ShareUserID': openapi.Schema(type=openapi.TYPE_STRING, description='分帳者ID'),
-            },),)    
-    @action(detail=False, methods=['post'])
+    
     def add_sharepay(self, request):
-        RecordID = request.data['RecordID']
+        RecordID = request.RecordID.RecordID
         record = Record.objects.get(RecordID = RecordID)
-        ShouldPay = request.data['ShouldPay']
-        ShareUserID = request.data['ShareUserID']
+        ShouldPay = request.ShouldPay
+        ShareUserID = request.ShareUser.UserID
         share_user=User.objects.get(UserID = ShareUserID)
         sharepay = SharePay.objects.create(RecordID=record, ShouldPay=ShouldPay, ShareUser = share_user)
         sharepay.save()
         return JsonResponse({'status': 'success', 'sharepay': SharePaySerializer(sharepay).data})
+    
+    @swagger_auto_schema(operation_summary='顯示計算分帳後金額',
+        manual_parameters=[
+            openapi.Parameter('LedgerID', openapi.IN_QUERY, description="Ledger ID", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_sharepay_by_ledger(self, request):
+        LedgerID = request.GET.get('LedgerID')
+        try:
+            record = Record.objects.filter(LedgerID=LedgerID)
+        except record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
+        #取得帳本有權限者
+        ledger_param = Ledger(
+            LedgerID = LedgerID
+        )
+        user_param = request.user
+        result = LedgerService.LedgerService().get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level= "true")
+        result= result['ledger_with_access']
+        result= result['users_access_list']
+        sharepay_result={'sharepay':[]}
+        for array in result:
+            userId= array['UserID']
+            sharepay_filter = Q()
+            for sharepay_arr in record:
+                sharepay_filter = sharepay_filter | (Q(RecordID = sharepay_arr.RecordID) & Q( ShareUser = userId))
+            sharepay=SharePay.objects.filter(sharepay_filter)
+            money=0
+            for arr in sharepay:
+                money+=arr.ShouldPay
+            sharepay_result['sharepay'].append({'UserID':userId,'UserName':array['UserName'],'Share_money':money})
+            print(sharepay_result)
+            #print("id:"+str(userId)+" ,UserName: "+array['UserName']+" ,SharePay:"+str(money))
+
+        return JsonResponse({'status': 'success','result':sharepay_result})
    
