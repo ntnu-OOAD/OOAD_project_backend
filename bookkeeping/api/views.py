@@ -12,9 +12,9 @@ from drf_yasg import openapi
 from django.db import connection
 from django.db.models import Q, F
 
-from apiServices import UserService, LedgerService, LedgerAccessService
+from apiServices import UserService, LedgerService, LedgerAccessService,ReceiptService
 
-
+import calendar #
 class UserViewSet(viewsets.GenericViewSet):
     service = UserService.UserService()
     queryset = User.objects.all()
@@ -333,7 +333,6 @@ class RecordViewSet(viewsets.GenericViewSet):
         SharePayViewSet.add_sharepay(self, request=sharepay)
         #分帳者
         for item in array_shareUsers:
-            print(item)
             sharepay = SharePay(
                 ShouldPay = cost/l,
                 RecordID = record,
@@ -384,14 +383,10 @@ class RecordViewSet(viewsets.GenericViewSet):
         elif 'ItemType' in request.data:
             record.ItemType = request.data['ItemType']
             cost=int(record.Cost)
-            print(cost)
             if(record.ItemType=="支出" and cost>0):
-                print("支出")
                 cost=cost*(-1)
             elif(record.ItemType=="收入" and cost<0):
-                print("收入")
                 cost=cost*(-1)
-            print(cost)
             record.Cost=cost
         elif 'Cost' in request.data:
             cost = int(request.data['Cost'])
@@ -452,6 +447,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         return JsonResponse({'status': 'success', 'this_monyh_pay': pay})
 
 class ReceiptViewSet(viewsets.GenericViewSet):
+    service = ReceiptService.ReceiptService()
     queryset = Receipt.objects.all()
     permission_classes = [
         permissions.IsAuthenticated
@@ -556,6 +552,67 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         receipt = Receipt.objects.filter(RecordID=RecordID)
         return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipt, many=True).data})
     
+    @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By statusCode',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'StatusCode': openapi.Schema(type=openapi.TYPE_STRING, description='發票號碼(8位數字)'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def check_receipt_by_statusCode(self, request):
+        StatusCode=request.data['StatusCode']
+        if(len(StatusCode) != 8 or StatusCode.isnumeric()==False):
+            return JsonResponse({'status': 'fail', 'error': 'Statuscode does not legal! Need 8 numbers.'})
+        result=self.service.check_win_receipt_number(StatusCode)
+        return JsonResponse(result)
+    
+    @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By RecordID',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='紀錄ID'),
+            },),)    
+    @action(detail=False, methods=['post'])
+    def check_receipt_by_RecordID(self, request):
+        RecordID = request.data['RecordID']
+        try:
+            record = Record.objects.get(RecordID=RecordID)
+        except record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
+        
+        info = self.service.get_receipt_win_info()
+        info = info['info']
+        info = info['issue']
+        year=int(info[0:3])+1911
+        start_month=info[4:6]
+        end_month=info[7:9]
+        end_day=calendar.monthrange(year,int(end_month))[1]
+        start = str(year)+'-'+start_month+"-01 00:00:00.000000"
+        end = str(year)+'-'+end_month+"-"+str(end_day) +" 23:59:59.999999"
+        try:
+            record = Record.objects.get(Q(RecordID=RecordID)& Q(BoughtDate__range=(start,end)))
+        except record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'Record\'s receipt  does not this month'})
+        
+        try:
+            receipt=Receipt.objects.get(RecordID=RecordID)
+        except receipt.DoesNotExist:
+            receipt = None
+        if(receipt is None):
+            return JsonResponse({'status': 'fail', 'error': 'Receipt does not exist'})
+        result=self.service.check_win_receipt_number(receipt.StatusCode)
+        return JsonResponse(result)
+    
+    @swagger_auto_schema(operation_summary='取得近一期發票中獎號碼',
+        request_body=None
+        )    
+    @action(detail=False, methods=['get'])
+    def get_receipt_win_info(self, request):
+        info = self.service.get_receipt_win_info()
+        return JsonResponse(info)
+    
 
 class SharePayViewSet(viewsets.GenericViewSet):
     queryset = SharePay.objects.all()
@@ -574,7 +631,7 @@ class SharePayViewSet(viewsets.GenericViewSet):
         sharepay.save()
         return JsonResponse({'status': 'success', 'sharepay': SharePaySerializer(sharepay).data})
     
-    @swagger_auto_schema(operation_summary='顯示計算分帳後金額',
+    @swagger_auto_schema(operation_summary='計算帳本分帳總金額',
         manual_parameters=[
             openapi.Parameter('LedgerID', openapi.IN_QUERY, description="Ledger ID", type=openapi.TYPE_STRING),
         ],
@@ -607,8 +664,6 @@ class SharePayViewSet(viewsets.GenericViewSet):
             for arr in sharepay:
                 money+=arr.ShouldPay
             sharepay_result['sharepay'].append({'UserID':userId,'UserName':array['UserName'],'Share_money':money})
-            print(sharepay_result)
-            #print("id:"+str(userId)+" ,UserName: "+array['UserName']+" ,SharePay:"+str(money))
 
         return JsonResponse({'status': 'success','result':sharepay_result})
    
