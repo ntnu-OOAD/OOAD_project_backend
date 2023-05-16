@@ -263,7 +263,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             properties={
                 'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（收入/支出）'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂/收入）'),
                 'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID(若空,則為create record者)'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
@@ -277,7 +277,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         Payby = request.data['Payby']
         if(Payby ==''):
             Payby=request.user.UserID
-        if(ItemType=="支出"):
+        if(ItemType!="收入"):
             Cost=int(Cost)*(-1)
         BoughtDate = request.data['BoughtDate']
         if(BoughtDate == ''):
@@ -293,7 +293,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             properties={
                 'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（收入/支出）'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂/收入）'),
                 'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID(若空,則為create record者)'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
@@ -309,7 +309,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         Payby = request.data['Payby']
         if(Payby ==''):
             Payby=request.user.UserID
-        if(ItemType=="支出"):
+        if(ItemType != "收入"):
             Cost=int(Cost)*(-1)
         BoughtDate = request.data['BoughtDate']
         if(BoughtDate == ''):
@@ -362,7 +362,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             properties={
                 'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的紀錄ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（收入/支出）'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂/收入）'),
                 'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買物品時間'),
@@ -377,20 +377,20 @@ class RecordViewSet(viewsets.GenericViewSet):
         if 'ItemType' in request.data and 'Cost' in request.data:
             record.ItemType = request.data['ItemType']
             cost = request.data['Cost']
-            if('ItemType'=="支出"):
+            if('ItemType'!="收入"):
                 cost=int(cost)*(-1)
             record.Cost=cost
         elif 'ItemType' in request.data:
             record.ItemType = request.data['ItemType']
             cost=int(record.Cost)
-            if(record.ItemType=="支出" and cost>0):
+            if(record.ItemType!="收入" and cost>0):
                 cost=cost*(-1)
             elif(record.ItemType=="收入" and cost<0):
                 cost=cost*(-1)
             record.Cost=cost
         elif 'Cost' in request.data:
             cost = int(request.data['Cost'])
-            if(record.ItemType=="支出"):
+            if(record.ItemType != "收入"):
                 cost=cost*(-1)
             record.Cost=cost
 
@@ -414,7 +414,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         records = Record.objects.filter(LedgerID=LedgerID)
         return JsonResponse({'status': 'success', 'records': RecordSerializer(records, many=True).data})
     
-    @swagger_auto_schema(operation_summary='取得當月收入',
+    @swagger_auto_schema(operation_summary='取得當月總收入',
        request_body=None
         )    
     @action(detail=False, methods=['get'])
@@ -422,15 +422,16 @@ class RecordViewSet(viewsets.GenericViewSet):
         user = request.user
         Year = datetime.now().year
         Month = datetime.now().month
+        end_day=calendar.monthrange(Year,int(Month))[1]
         start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
-        end = str(Year)+'-'+str(Month)+"-30 23:59:59.999999"
+        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
         Records=Record.objects.filter(Q(Payby=user.UserID) & Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
         earning=0
         for record in Records:
             earning+=record.Cost
         return JsonResponse({'status': 'success', 'this_month_earning': earning})
     
-    @swagger_auto_schema(operation_summary='取得當月支出',
+    @swagger_auto_schema(operation_summary='取得當月總支出',
        request_body=None
         )    
     @action(detail=False, methods=['get'])
@@ -438,13 +439,34 @@ class RecordViewSet(viewsets.GenericViewSet):
         user = request.user
         Year = datetime.now().year
         Month = datetime.now().month
+        end_day=calendar.monthrange(Year,int(Month))[1]
         start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
-        end = str(Year)+'-'+str(Month)+"-30 23:59:59.999999"
-        Records=Record.objects.filter(Q(Payby=user.UserID) & Q(ItemType="支出") & Q(BoughtDate__range=(start,end)))
+        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
+        Records=Record.objects.filter(Q(Payby=user.UserID) & ~Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
         pay=0
         for record in Records:
             pay+=record.Cost
         return JsonResponse({'status': 'success', 'this_monyh_pay': pay})
+    
+    @swagger_auto_schema(operation_summary='取得當月支出類型ItemType',
+       manual_parameters=[
+            openapi.Parameter('ItemType', openapi.IN_QUERY, description="ItemType", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_this_month_ItemType_cost(self, request):
+        user = request.user
+        ItemType = request.GET.get('ItemType')
+        Year = datetime.now().year
+        Month = datetime.now().month
+        end_day=calendar.monthrange(Year,int(Month))[1]
+        start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
+        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
+        Records=Record.objects.filter(Q(Payby=user.UserID) & Q(ItemType=ItemType) & Q(BoughtDate__range=(start,end)))
+        pay=0
+        for record in Records:
+            pay+=record.Cost
+        return JsonResponse({'status': 'success', 'this_monyh_ItemType_cost': pay})
 
 class ReceiptViewSet(viewsets.GenericViewSet):
     service = ReceiptService.ReceiptService()
