@@ -263,7 +263,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             properties={
                 'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂/收入）'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂,其他/收入）'),
                 'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID(若空,則為create record者)'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
@@ -293,7 +293,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             properties={
                 'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂/收入）'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂,其他/收入）'),
                 'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID(若空,則為create record者)'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
@@ -362,7 +362,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             properties={
                 'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的紀錄ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂/收入）'),
+                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂,其他/收入）'),
                 'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買物品時間'),
@@ -412,7 +412,7 @@ class RecordViewSet(viewsets.GenericViewSet):
     def get_records_by_ledger(self, request):
         LedgerID = request.GET.get('LedgerID')
         records = Record.objects.filter(LedgerID=LedgerID)
-        return JsonResponse({'status': 'success', 'records': RecordSerializer(records, many=True).data})
+        return JsonResponse({'status': 'success', 'record': RecordSerializer(records, many=True).data})
     
     @swagger_auto_schema(operation_summary='取得當月總收入',
        request_body=None
@@ -446,7 +446,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         pay=0
         for record in Records:
             pay+=record.Cost
-        return JsonResponse({'status': 'success', 'this_monyh_pay': pay})
+        return JsonResponse({'status': 'success', 'this_month_pay': pay})
     
     @swagger_auto_schema(operation_summary='取得當月支出類型ItemType',
        manual_parameters=[
@@ -466,7 +466,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         pay=0
         for record in Records:
             pay+=record.Cost
-        return JsonResponse({'status': 'success', 'this_monyh_ItemType_cost': pay})
+        return JsonResponse({'status': 'success', 'this_month_ItemType_cost': pay})
 
 class ReceiptViewSet(viewsets.GenericViewSet):
     service = ReceiptService.ReceiptService()
@@ -515,7 +515,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         if(receipt is None):
             return JsonResponse({'status': 'fail', 'error': 'receipt does not exist'})
         receipt.delete()
-        return JsonResponse({'status': 'success', 'record': ReceiptSerializer(receipt).data})
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
     
     @swagger_auto_schema(operation_summary='修改發票號碼',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
@@ -561,7 +561,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         receipts=Receipt.objects.filter(record_filter)
         if(receipts.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'User has no receipt'})
-        return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipts, many=True).data})
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipts, many=True).data})
     
     @swagger_auto_schema(operation_summary='取得紀錄之發票',
         manual_parameters=[
@@ -572,7 +572,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     def get_receipt_by_recordID(self, request):
         RecordID = request.GET.get('RecordID')
         receipt = Receipt.objects.filter(RecordID=RecordID)
-        return JsonResponse({'status': 'success', 'receipts': ReceiptSerializer(receipt, many=True).data})
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt, many=True).data})
     
     @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By statusCode',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
