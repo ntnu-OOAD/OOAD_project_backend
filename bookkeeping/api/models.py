@@ -79,8 +79,8 @@ class SharePay(models.Model):
     ShareUser = models.ForeignKey(User, on_delete=models.CASCADE)
     ShouldPay = models.DecimalField(max_digits=10, decimal_places=2)
 
-    def __str__(self):
-        return self.RecordID
+    #def __str__(self):
+    #    return self.RecordID
 
 class Receipt(models.Model):
     ReceiptID = models.BigAutoField(primary_key=True)

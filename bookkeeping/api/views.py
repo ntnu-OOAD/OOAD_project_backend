@@ -258,36 +258,6 @@ class RecordViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = RecordSerializer
-    @swagger_auto_schema(operation_summary='新增個人帳本紀錄',
-        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
-            properties={
-                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='要新增紀錄之帳本ID'),
-                'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
-                'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂,其他/收入）'),
-                'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
-                'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='付錢者UserID(若空,則為create record者)'),
-                'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買日期'),
-            },),)    
-    @action(detail=False, methods=['post'])
-    def create_record(self, request):
-        LedgerID = request.data['LedgerID']
-        ItemName = request.data['ItemName']
-        ItemType = request.data['ItemType']
-        Cost = request.data['Cost']
-        Payby = request.data['Payby']
-        if(Payby ==''):
-            Payby=request.user.UserID
-        if(ItemType!="收入"):
-            Cost=int(Cost)*(-1)
-        BoughtDate = request.data['BoughtDate']
-        if(BoughtDate == ''):
-            BoughtDate = datetime.now()
-        ledger = Ledger.objects.get(LedgerID=LedgerID)
-        payby = User.objects.get(UserID=Payby)
-        record = Record.objects.create(LedgerID=ledger, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=payby, BoughtDate=BoughtDate)
-        record.save()
-        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
-    
     @swagger_auto_schema(operation_summary='新增分帳紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
@@ -307,6 +277,10 @@ class RecordViewSet(viewsets.GenericViewSet):
         ItemType = request.data['ItemType']
         Cost = request.data['Cost']
         Payby = request.data['Payby']
+        array_shareUsers = request.data.get('ShareUsers')
+        if (array_shareUsers == []):
+            return JsonResponse({'status': 'fail', 'error': "shareUsers is NULL"})
+        
         if(Payby ==''):
             Payby=request.user.UserID
         if(ItemType != "收入"):
@@ -318,8 +292,6 @@ class RecordViewSet(viewsets.GenericViewSet):
         payby = User.objects.get(UserID=Payby)
         record = Record.objects.create(LedgerID=ledger, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=payby, BoughtDate=BoughtDate)
         record.save()
-        
-        array_shareUsers = request.data.get('ShareUsers')
         l=0
         for item in array_shareUsers:
             l+=1
@@ -357,15 +329,17 @@ class RecordViewSet(viewsets.GenericViewSet):
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
     
     #update_record
-    @swagger_auto_schema(operation_summary='修改個人紀錄資料',
+    @swagger_auto_schema(operation_summary='修改紀錄資料',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
                 'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='要修改的紀錄ID'),
                 'ItemName': openapi.Schema(type=openapi.TYPE_STRING, description='物品名稱'),
                 'ItemType': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型（食,衣,住,行,育,樂,其他/收入）'),
-                'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用(皆輸入正數)'),
+                'Cost': openapi.Schema(type=openapi.TYPE_STRING, description='費用'),
                 'Payby': openapi.Schema(type=openapi.TYPE_STRING, description='物品類型'),
                 'BoughtDate': openapi.Schema(type=openapi.TYPE_STRING, description='購買物品時間'),
+                'ShareUsers': openapi.Schema(type=openapi.TYPE_ARRAY
+                    ,items=openapi.Items(type=openapi.TYPE_STRING), description='分帳者們'),
             },),)    
     @action(detail=False, methods=['post'])
     def update_record(self, request):
@@ -376,9 +350,9 @@ class RecordViewSet(viewsets.GenericViewSet):
 
         if 'ItemType' in request.data and 'Cost' in request.data:
             record.ItemType = request.data['ItemType']
-            cost = request.data['Cost']
-            if('ItemType'!="收入"):
-                cost=int(cost)*(-1)
+            cost = int(request.data['Cost'])
+            if('ItemType'!="收入" and cost>0):
+                cost=cost*(-1)
             record.Cost=cost
         elif 'ItemType' in request.data:
             record.ItemType = request.data['ItemType']
@@ -390,15 +364,51 @@ class RecordViewSet(viewsets.GenericViewSet):
             record.Cost=cost
         elif 'Cost' in request.data:
             cost = int(request.data['Cost'])
-            if(record.ItemType != "收入"):
+            if(record.ItemType != "收入" and cost>0):
                 cost=cost*(-1)
             record.Cost=cost
+        else:
+            cost=record.Cost
 
         if 'Payby' in request.data:
             payby=request.data['Payby']
-            record.Payby = User.objects.get(UserID=payby)
+            payby = User.objects.get(UserID=payby)
+            record.Payby =payby
+        else:
+            payby=record.Payby
+
         if 'BoughtDate' in request.data:
             record.BoughtDate = request.data['BoughtDate']
+        
+        array_shareUsers = request.data.get('ShareUsers')
+        if (array_shareUsers == []):
+            return JsonResponse({'status': 'fail', 'error': "shareUsers is NULL"})
+        #delete old sharepay
+        sharepay = SharePay(
+            RecordID = record,
+        )
+        SharePayViewSet.delete_sharepay(self, request=sharepay)
+        #add new sharepay
+        l=0
+        for item in array_shareUsers:
+            l+=1
+        cost=int(cost)
+        #付錢者
+        sharepay = SharePay(
+                ShouldPay = cost*(-1),
+                RecordID = record,
+                ShareUser = payby
+            )
+        SharePayViewSet.add_sharepay(self, request=sharepay)
+        #分帳者
+        for item in array_shareUsers:
+            sharepay = SharePay(
+                ShouldPay = cost/l,
+                RecordID = record,
+                ShareUser = User.objects.get(UserID=item)
+            )
+            SharePayViewSet.add_sharepay(self, request=sharepay)
+
         record.save()
         return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
     
@@ -414,41 +424,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         records = Record.objects.filter(LedgerID=LedgerID)
         return JsonResponse({'status': 'success', 'record': RecordSerializer(records, many=True).data})
     
-    @swagger_auto_schema(operation_summary='取得當月總收入',
-       request_body=None
-        )    
-    @action(detail=False, methods=['get'])
-    def get_earning_this_month(self, request):
-        user = request.user
-        Year = datetime.now().year
-        Month = datetime.now().month
-        end_day=calendar.monthrange(Year,int(Month))[1]
-        start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
-        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
-        Records=Record.objects.filter(Q(Payby=user.UserID) & Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
-        earning=0
-        for record in Records:
-            earning+=record.Cost
-        return JsonResponse({'status': 'success', 'this_month_earning': earning})
-    
-    @swagger_auto_schema(operation_summary='取得當月總支出',
-       request_body=None
-        )    
-    @action(detail=False, methods=['get'])
-    def get_pay_this_month(self, request):
-        user = request.user
-        Year = datetime.now().year
-        Month = datetime.now().month
-        end_day=calendar.monthrange(Year,int(Month))[1]
-        start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
-        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
-        Records=Record.objects.filter(Q(Payby=user.UserID) & ~Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
-        pay=0
-        for record in Records:
-            pay+=record.Cost
-        return JsonResponse({'status': 'success', 'this_month_pay': pay})
-    
-    @swagger_auto_schema(operation_summary='取得當月支出類型ItemType',
+    @swagger_auto_schema(operation_summary='取得當月支出類型ItemType(食,衣,住,行,育,樂,其他/收入)',
        manual_parameters=[
             openapi.Parameter('ItemType', openapi.IN_QUERY, description="ItemType", type=openapi.TYPE_STRING),
         ],
@@ -456,17 +432,28 @@ class RecordViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_this_month_ItemType_cost(self, request):
         user = request.user
+        ledgers =LedgerAccess.objects.filter(UserID=user.UserID)
         ItemType = request.GET.get('ItemType')
         Year = datetime.now().year
         Month = datetime.now().month
         end_day=calendar.monthrange(Year,int(Month))[1]
         start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
         end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
-        Records=Record.objects.filter(Q(Payby=user.UserID) & Q(ItemType=ItemType) & Q(BoughtDate__range=(start,end)))
-        pay=0
+
+        record_filter = Q()
+        for ledger in ledgers:
+            record_filter = record_filter | Q(LedgerID=ledger.LedgerID.LedgerID) 
+        Records=Record.objects.filter(record_filter & Q(ItemType=ItemType) & Q(BoughtDate__range=(start,end)))
+        print(Records)
+        money=0
         for record in Records:
-            pay+=record.Cost
-        return JsonResponse({'status': 'success', 'this_month_ItemType_cost': pay})
+            shares = SharePay.objects.filter(Q(RecordID = record.RecordID)& Q(ShareUser=user.UserID))
+            for share in shares:
+                if(record.ItemType !="收入" and share.ShouldPay<0):
+                    money+=share.ShouldPay
+                elif(record.ItemType =="收入" and share.ShouldPay>0):
+                    money+=share.ShouldPay
+        return JsonResponse({'status': 'success', 'this_month_ItemType_cost': money})
 
 class ReceiptViewSet(viewsets.GenericViewSet):
     service = ReceiptService.ReceiptService()
@@ -651,7 +638,13 @@ class SharePayViewSet(viewsets.GenericViewSet):
         share_user=User.objects.get(UserID = ShareUserID)
         sharepay = SharePay.objects.create(RecordID=record, ShouldPay=ShouldPay, ShareUser = share_user)
         sharepay.save()
-        return JsonResponse({'status': 'success', 'sharepay': SharePaySerializer(sharepay).data})
+        return JsonResponse({'status': 'success'})
+    
+    def delete_sharepay(self, request):
+        RecordID = request.RecordID.RecordID
+        sharepay=SharePay.objects.filter(RecordID = RecordID)
+        sharepay.delete()
+        return JsonResponse({'status': 'success'})
     
     @swagger_auto_schema(operation_summary='計算帳本分帳總金額',
         manual_parameters=[
@@ -688,4 +681,78 @@ class SharePayViewSet(viewsets.GenericViewSet):
             sharepay_result['sharepay'].append({'UserID':userId,'UserName':array['UserName'],'Share_money':money})
 
         return JsonResponse({'status': 'success','result':sharepay_result})
+    
+    @swagger_auto_schema(operation_summary='取得紀錄分帳By RecordID',
+        manual_parameters=[
+            openapi.Parameter('RecordID', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_sharepay_by_record(self, request):
+        RecordID = request.GET.get('RecordID')
+        record = Record.objects.get(RecordID = RecordID)
+        try:
+            sharepay = SharePay.objects.filter(RecordID=RecordID)
+        except sharepay.DoesNotExist:
+            sharepay = None
+        if(sharepay is None):
+            return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
+        ledger_param = Ledger(
+            LedgerID = record.LedgerID.LedgerID
+        )
+        user_param = request.user
+        result = LedgerService.LedgerService().get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level= "true")
+        result= result['ledger_with_access']
+        result= result['users_access_list']
+        sharepay_result={'sharepay':[]}
+        for array in result:
+            userId= array['UserID']
+            sharepay=SharePay.objects.filter(Q(RecordID = RecordID) & Q( ShareUser = userId))
+            money=0
+            for arr in sharepay:
+                if(record.ItemType!="收入" and arr.ShouldPay<0):
+                    money+=arr.ShouldPay
+                elif(record.ItemType == "收入" and arr.ShouldPay>0):
+                    money+=arr.ShouldPay
+            sharepay_result['sharepay'].append({'UserID':userId,'UserName':array['UserName'],'Share_money':money})
+        return JsonResponse({'status': 'success','result':sharepay_result})
+    
+    @swagger_auto_schema(operation_summary='取得分帳者 By RecordID',
+        manual_parameters=[
+            openapi.Parameter('RecordID', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_sharepay_user_by_record(self, request):
+        RecordID = request.GET.get('RecordID')
+        record = Record.objects.get(RecordID = RecordID)
+        try:
+            sharepay = SharePay.objects.filter(RecordID=RecordID)
+        except sharepay.DoesNotExist:
+            sharepay = None
+        if(sharepay is None):
+            return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
+        ledger_param = Ledger(
+            LedgerID = record.LedgerID.LedgerID
+        )
+        user_param = request.user
+        result = LedgerService.LedgerService().get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level= "true")
+        result= result['ledger_with_access']
+        result= result['users_access_list']
+        sharepay_result={'ShareUsers':[]}
+        for array in result:
+            userId= array['UserID']
+            sharepay=SharePay.objects.filter(Q(RecordID = RecordID) & Q( ShareUser = userId))
+            money=0
+            for arr in sharepay:
+                if(record.ItemType!="收入" and arr.ShouldPay<0):
+                    money+=arr.ShouldPay
+                elif(record.ItemType == "收入" and arr.ShouldPay>0):
+                    money+=arr.ShouldPay
+            if(money!=0):
+                sharepay_result['ShareUsers']+=[userId]
+        return JsonResponse({'status': 'success','ShareUsers':sharepay_result.get('ShareUsers')})
+   
+   
+   
    
