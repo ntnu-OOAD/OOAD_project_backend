@@ -1,13 +1,13 @@
 from .models import *
 from rest_framework import serializers
 
-
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['UserID', 'UserName', 'UserNickname']
 
 class LedgerSerializer(serializers.ModelSerializer):
+    CreateDate = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%SZ')
     class Meta:
         model = Ledger
         fields = ['LedgerID', 'LedgerName', 'OwnerID', 'LedgerType', 'CreateDate']
