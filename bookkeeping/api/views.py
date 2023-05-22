@@ -344,7 +344,13 @@ class RecordViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['post'])
     def update_record(self, request):
         RecordID = request.data['RecordID']
-        record = Record.objects.get(RecordID=RecordID)
+        try:
+            record = Record.objects.get(RecordID=RecordID)
+        except record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
+        
         if 'ItemName' in request.data:
             record.ItemName = request.data['ItemName']
 
@@ -475,7 +481,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'fail', 'error': 'This recordID\'s receipt already exist'})
         try:
             record = Record.objects.get(RecordID=RecordID)
-        except Record.DoesNotExist:
+        except record.DoesNotExist:
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'record does not exist'})
@@ -497,7 +503,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         ReceiptID = request.data['ReceiptID']
         try:
             receipt = Receipt.objects.get(ReceiptID=ReceiptID)
-        except Receipt.DoesNotExist:
+        except receipt.DoesNotExist:
             receipt = None
         if(receipt is None):
             return JsonResponse({'status': 'fail', 'error': 'receipt does not exist'})
