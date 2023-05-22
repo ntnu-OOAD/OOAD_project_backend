@@ -18,13 +18,13 @@ class LedgerAccessSerializer(serializers.ModelSerializer):
         fields = ['LedgerID', 'UserID', 'AccessLevel']
 
 class RecordSerializer(serializers.ModelSerializer):
-    BoughtDate = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    BoughtDate = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%SZ')
     class Meta:
         model = Record
         fields = ['RecordID', 'LedgerID', 'ItemName', 'ItemType', 'Cost', 'Payby', 'BoughtDate']
 
 class ReceiptSerializer(serializers.ModelSerializer):
-    BuyDate = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%S')
+    BuyDate = serializers.DateTimeField(format='%Y-%m-%d %H:%M:%SZ')
     class Meta:
         model = Receipt
         fields = ['ReceiptID', 'RecordID', 'BuyDate', 'StatusCode']
