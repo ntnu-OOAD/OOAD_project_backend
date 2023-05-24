@@ -346,7 +346,7 @@ class RecordViewSet(viewsets.GenericViewSet):
         RecordID = request.data['RecordID']
         try:
             record = Record.objects.get(RecordID=RecordID)
-        except record.DoesNotExist:
+        except Record.DoesNotExist:
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
@@ -481,7 +481,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'fail', 'error': 'This recordID\'s receipt already exist'})
         try:
             record = Record.objects.get(RecordID=RecordID)
-        except record.DoesNotExist:
+        except Record.DoesNotExist:
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'record does not exist'})
@@ -503,7 +503,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         ReceiptID = request.data['ReceiptID']
         try:
             receipt = Receipt.objects.get(ReceiptID=ReceiptID)
-        except receipt.DoesNotExist:
+        except Receipt.DoesNotExist:
             receipt = None
         if(receipt is None):
             return JsonResponse({'status': 'fail', 'error': 'receipt does not exist'})
@@ -564,7 +564,13 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_receipt_by_recordID(self, request):
         RecordID = request.GET.get('RecordID')
-        receipt = Receipt.objects.get(RecordID=RecordID)
+        try:
+            receipt = Receipt.objects.get(RecordID=RecordID)
+        except Receipt.DoesNotExist:
+            receipt = None
+        if(receipt is None):
+            return JsonResponse({'status': 'fail', 'error': 'RecordID\'s receipt does not exist'})
+        
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
     
     @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By statusCode',
@@ -590,7 +596,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         RecordID = request.data['RecordID']
         try:
             record = Record.objects.get(RecordID=RecordID)
-        except record.DoesNotExist:
+        except Record.DoesNotExist:
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
@@ -606,14 +612,14 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         end = str(year)+'-'+end_month+"-"+str(end_day) +" 23:59:59.999999"
         try:
             record = Record.objects.get(Q(RecordID=RecordID)& Q(BoughtDate__range=(start,end)))
-        except record.DoesNotExist:
+        except Record.DoesNotExist:
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record\'s receipt  does not this month'})
         
         try:
             receipt=Receipt.objects.get(RecordID=RecordID)
-        except receipt.DoesNotExist:
+        except Receipt.DoesNotExist:
             receipt = None
         if(receipt is None):
             return JsonResponse({'status': 'fail', 'error': 'Receipt does not exist'})
@@ -662,7 +668,7 @@ class SharePayViewSet(viewsets.GenericViewSet):
         LedgerID = request.GET.get('LedgerID')
         try:
             record = Record.objects.filter(LedgerID=LedgerID)
-        except record.DoesNotExist:
+        except Record.DoesNotExist:
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
@@ -696,10 +702,15 @@ class SharePayViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_sharepay_by_record(self, request):
         RecordID = request.GET.get('RecordID')
-        record = Record.objects.get(RecordID = RecordID)
+        try:
+            record = Record.objects.get(RecordID = RecordID)
+        except Record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
         try:
             sharepay = SharePay.objects.filter(RecordID=RecordID)
-        except sharepay.DoesNotExist:
+        except SharePay.DoesNotExist:
             sharepay = None
         if(sharepay is None):
             return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
@@ -734,7 +745,7 @@ class SharePayViewSet(viewsets.GenericViewSet):
         record = Record.objects.get(RecordID = RecordID)
         try:
             sharepay = SharePay.objects.filter(RecordID=RecordID)
-        except sharepay.DoesNotExist:
+        except SharePay.DoesNotExist:
             sharepay = None
         if(sharepay is None):
             return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
