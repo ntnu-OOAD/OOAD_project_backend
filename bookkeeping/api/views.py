@@ -564,8 +564,8 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_receipt_by_recordID(self, request):
         RecordID = request.GET.get('RecordID')
-        receipt = Receipt.objects.filter(RecordID=RecordID)
-        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt, many=True).data})
+        receipt = Receipt.objects.get(RecordID=RecordID)
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
     
     @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By statusCode',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
