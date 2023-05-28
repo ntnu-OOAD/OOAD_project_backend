@@ -351,16 +351,19 @@ class RecordViewSet(viewsets.GenericViewSet):
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
         
-        if 'ItemName' in request.data:
+        ItemName = request.data['ItemName']
+        if ItemName is not '':
             record.ItemName = request.data['ItemName']
 
-        if 'ItemType' in request.data and 'Cost' in request.data:
+        ItemType = request.data['ItemType']
+        Cost = request.data['Cost']
+        if ItemType is not '' and Cost is not '':
             record.ItemType = request.data['ItemType']
             cost = int(request.data['Cost'])
             if('ItemType'!="收入" and cost>0):
                 cost=cost*(-1)
             record.Cost=cost
-        elif 'ItemType' in request.data:
+        elif ItemType is not '':
             record.ItemType = request.data['ItemType']
             cost=int(record.Cost)
             if(record.ItemType!="收入" and cost>0):
@@ -368,7 +371,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             elif(record.ItemType=="收入" and cost<0):
                 cost=cost*(-1)
             record.Cost=cost
-        elif 'Cost' in request.data:
+        elif Cost is not '':
             cost = int(request.data['Cost'])
             if(record.ItemType != "收入" and cost>0):
                 cost=cost*(-1)
@@ -376,15 +379,18 @@ class RecordViewSet(viewsets.GenericViewSet):
         else:
             cost=record.Cost
 
-        if 'Payby' in request.data:
+        Payby = request.data['Payby']
+        if Payby is not '':
             payby=request.data['Payby']
             payby = User.objects.get(UserID=payby)
             record.Payby =payby
         else:
             payby=record.Payby
 
-        if 'BoughtDate' in request.data:
+        BoughtDate = request.data['BoughtDate']
+        if BoughtDate is not '':
             record.BoughtDate = request.data['BoughtDate']
+            
         
         array_shareUsers = request.data.get('ShareUsers')
         if (array_shareUsers == []):

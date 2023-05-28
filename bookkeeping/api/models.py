@@ -72,15 +72,13 @@ class Record(models.Model):
     ItemType = models.TextField(max_length=320 , default = "None")
     Cost = models.DecimalField(max_digits=10, decimal_places=2)
     Payby = models.ForeignKey(User, on_delete=models.CASCADE)
-    BoughtDate = models.DateTimeField(default=datetime.now)
+    BoughtDate = models.DateTimeField(default=datetime.utcnow)
 
 class SharePay(models.Model):
     RecordID = models.ForeignKey(Record, on_delete=models.CASCADE)
     ShareUser = models.ForeignKey(User, on_delete=models.CASCADE)
     ShouldPay = models.DecimalField(max_digits=10, decimal_places=2)
 
-    #def __str__(self):
-    #    return self.RecordID
 
 class Receipt(models.Model):
     ReceiptID = models.BigAutoField(primary_key=True)
