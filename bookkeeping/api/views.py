@@ -352,18 +352,18 @@ class RecordViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
         
         ItemName = request.data['ItemName']
-        if ItemName is not '':
+        if ItemName != '':
             record.ItemName = request.data['ItemName']
 
         ItemType = request.data['ItemType']
         Cost = request.data['Cost']
-        if ItemType is not '' and Cost is not '':
+        if ItemType != '' and Cost != '':
             record.ItemType = request.data['ItemType']
             cost = int(request.data['Cost'])
             if('ItemType'!="收入" and cost>0):
                 cost=cost*(-1)
             record.Cost=cost
-        elif ItemType is not '':
+        elif ItemType != '':
             record.ItemType = request.data['ItemType']
             cost=int(record.Cost)
             if(record.ItemType!="收入" and cost>0):
@@ -371,7 +371,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             elif(record.ItemType=="收入" and cost<0):
                 cost=cost*(-1)
             record.Cost=cost
-        elif Cost is not '':
+        elif Cost != '':
             cost = int(request.data['Cost'])
             if(record.ItemType != "收入" and cost>0):
                 cost=cost*(-1)
@@ -380,7 +380,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             cost=record.Cost
 
         Payby = request.data['Payby']
-        if Payby is not '':
+        if Payby != '':
             payby=request.data['Payby']
             payby = User.objects.get(UserID=payby)
             record.Payby =payby
@@ -388,7 +388,7 @@ class RecordViewSet(viewsets.GenericViewSet):
             payby=record.Payby
 
         BoughtDate = request.data['BoughtDate']
-        if BoughtDate is not '':
+        if BoughtDate != '':
             record.BoughtDate = request.data['BoughtDate']
             
         
@@ -456,7 +456,6 @@ class RecordViewSet(viewsets.GenericViewSet):
         for ledger in ledgers:
             record_filter = record_filter | Q(LedgerID=ledger.LedgerID.LedgerID) 
         Records=Record.objects.filter(record_filter & Q(ItemType=ItemType) & Q(BoughtDate__range=(start,end)))
-        print(Records)
         money=0
         for record in Records:
             shares = SharePay.objects.filter(Q(RecordID = record.RecordID)& Q(ShareUser=user.UserID))
@@ -562,6 +561,29 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'fail', 'error': 'User has no receipt'})
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipts, many=True).data})
     
+    @swagger_auto_schema(operation_summary='取得帳本之所有發票',
+        manual_parameters=[
+            openapi.Parameter('LedgerID', openapi.IN_QUERY, description="Ledger ID", type=openapi.TYPE_STRING),
+        ],
+        )    
+    @action(detail=False, methods=['get'])
+    def get_receipt_by_LedgerID(self, request):
+        LedgerID = request.GET.get('LedgerID')
+        try:
+            record_list= Record.objects.filter(LedgerID =LedgerID)
+        except Record.DoesNotExist:
+            record_list = None
+        if(record_list is None):
+            return JsonResponse({'status': 'fail', 'error': 'This ledger does not has Record'})
+
+        receipt_filter = Q()
+        for record in record_list:
+            receipt_filter = receipt_filter | Q(RecordID=record.RecordID)
+        receipts=Receipt.objects.filter(receipt_filter)
+        if(receipts.count() == 0):
+            return JsonResponse({'status': 'fail', 'error': 'User has no receipt in this date range'})
+        return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipts,many=True).data})
+    
     @swagger_auto_schema(operation_summary='取得紀錄之發票',
         manual_parameters=[
             openapi.Parameter('RecordID', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_STRING),
@@ -591,7 +613,44 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             return JsonResponse({'status': 'fail', 'error': 'Statuscode does not legal! Need 8 numbers.'})
         result=self.service.check_win_receipt_number(StatusCode)
         return JsonResponse(result)
+        
+    @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By LedgerID',
+        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
+            properties={
+                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='Ledger ID'),
+            },),
+        )    
+    @action(detail=False, methods=['post'])
+    def check_receipt_by_LedgerID(self, request):
+        LedgerID = request.data['LedgerID']
+        try:
+            record_list= Record.objects.filter(LedgerID =LedgerID)
+        except Record.DoesNotExist:
+            record_list = None
+        if(record_list is None):
+            return JsonResponse({'status': 'fail', 'error': 'This ledger does not has Record'})
+        
+        info = self.service.get_receipt_win_info()
+        info = info['info']
+        info = info['issue']
+        year=int(info[0:3])+1911
+        start_month=info[4:6]
+        end_month=info[7:9]
+        end_day=calendar.monthrange(year,int(end_month))[1]
+        start = str(year)+'-'+start_month+"-01 00:00:00.000000"
+        end = str(year)+'-'+end_month+"-"+str(end_day) +" 23:59:59.999999"
+
+        receipt_filter = Q()
+        for record in record_list:
+            receipt_filter = receipt_filter | (Q(RecordID=record.RecordID)& Q(BuyDate__range=(start,end)))
+        receipts=Receipt.objects.filter(receipt_filter)
+        if(receipts.count() == 0):
+            return JsonResponse({'status': 'fail', 'error': 'User has no receipt in this date range'})
+        result=self.service.check_many_win_receipt_number(receipts)
+        
+        return JsonResponse(result)
     
+
     @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By RecordID',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
@@ -629,8 +688,10 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             receipt = None
         if(receipt is None):
             return JsonResponse({'status': 'fail', 'error': 'Receipt does not exist'})
-        result=self.service.check_win_receipt_number(receipt.StatusCode)
+        result=self.service.check_win_receipt_number(receipt)
         return JsonResponse(result)
+    
+    
     
     @swagger_auto_schema(operation_summary='取得近一期發票中獎號碼',
         request_body=None

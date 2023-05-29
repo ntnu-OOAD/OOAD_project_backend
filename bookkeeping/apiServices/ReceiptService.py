@@ -24,7 +24,7 @@ class ReceiptService:
         return  {'status': 'success', 'info': info}
 
 
-    def check_win_receipt_number(self,StatusCode):
+    def check_many_win_receipt_number(self,Receipts):
         tree = BeautifulSoup(web.text, "html.parser")  
         issue = tree.select(".carousel-item")[0].getText(); 
         winlist = tree.select('.container-fluid')[0].select('.etw-tbiggest')  
@@ -32,7 +32,51 @@ class ReceiptService:
         ns = winlist[1].getText() 
         n1 = [winlist[2].getText()[-8:], winlist[3].getText()[-8:], winlist[4].getText()[-8:]] 
 
-        inputnum = StatusCode
+        receipt_result={'Receipts':[]}
+        for Receipt in Receipts:
+            inputnum = Receipt.StatusCode
+            money="0"
+            try:
+                if inputnum == nss: 
+                    money="1000萬元"
+                if inputnum == ns: 
+                    money="200萬"
+                for i in n1:
+                    if inputnum == i:
+                        money="20萬"
+                        break
+                    if inputnum[-7:] == i[-7:]:
+                        money="4萬"
+                        break
+                    if inputnum[-6:] == i[-6:]:
+                        money="1萬"
+                        break
+                    if inputnum[-5:] == i[-5:]:
+                        money="4000"
+                        break
+                    if inputnum[-4:] == i[-4:]:
+                        money="1000"
+                        break
+                    if inputnum[-3:] == i[-3:]:
+                        money="200"
+                        break
+                receipt_result['Receipts'].append({'RecordID':Receipt.RecordID.RecordID,'StatusCode':inputnum,'money':money})
+                
+            except:
+                print("ERROR") 
+                return  {'status': 'fail', 'message': 'claim_receipt Server wrong'}
+
+        return  {'status': 'success','issue':issue[0:10],'result':receipt_result}
+        
+    def check_win_receipt_number(self,Receipt):
+        tree = BeautifulSoup(web.text, "html.parser")  
+        issue = tree.select(".carousel-item")[0].getText(); 
+        winlist = tree.select('.container-fluid')[0].select('.etw-tbiggest')  
+        nss = winlist[0].getText()  
+        ns = winlist[1].getText() 
+        n1 = [winlist[2].getText()[-8:], winlist[3].getText()[-8:], winlist[4].getText()[-8:]] 
+
+        inputnum = Receipt.StatusCode
         money="0"
         try:
             if inputnum == nss: 
@@ -58,10 +102,11 @@ class ReceiptService:
                 if inputnum[-3:] == i[-3:]:
                     money="200"
                     break
-            return  {'status': 'success', 'StatusCode':StatusCode,'money': money}
+            return  {'status': 'success','RecordID': Receipt.RecordID.RecordID, 'StatusCode':inputnum,'money': money}
         except:
             print("ERROR") 
             return  {'status': 'fail', 'message': 'claim_receipt Server wrong'}
         
         
             
+
