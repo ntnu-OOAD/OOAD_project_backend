@@ -608,11 +608,9 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_receipt_by_LedgerID(self, request):
         LedgerID = request.GET.get('LedgerID')
-        try:
-            record_list= Record.objects.filter(LedgerID =LedgerID)
-        except Record.DoesNotExist:
-            record_list = None
-        if(record_list is None):
+
+        record_list= Record.objects.filter(LedgerID =LedgerID)
+        if(record_list.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'This ledger does not has Record'})
 
         receipt_filter = Q()
@@ -620,7 +618,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             receipt_filter = receipt_filter | Q(RecordID=record.RecordID)
         receipts=Receipt.objects.filter(receipt_filter)
         if(receipts.count() == 0):
-            return JsonResponse({'status': 'fail', 'error': 'User has no receipt in this date range'})
+            return JsonResponse({'status': 'fail', 'error': 'User has no receipt in this Ledger'})
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipts,many=True).data})
     
     @swagger_auto_schema(operation_summary='取得紀錄之發票',
@@ -640,33 +638,30 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
     
-    @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By statusCode',
-        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
-            properties={
-                'StatusCode': openapi.Schema(type=openapi.TYPE_STRING, description='發票號碼(8位數字)'),
-            },),)    
-    @action(detail=False, methods=['post'])
+    @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By statusCode', 
+        manual_parameters=[
+            openapi.Parameter('StatusCode', openapi.IN_QUERY, description="StatusCode(8位數字)", type=openapi.TYPE_STRING),
+        ],
+        )  
+    @action(detail=False, methods=['get'])
     def check_receipt_by_statusCode(self, request):
-        StatusCode=request.data['StatusCode']
+        StatusCode=request.GET.get('StatusCode')
         if(len(StatusCode) != 8 or StatusCode.isnumeric()==False):
             return JsonResponse({'status': 'fail', 'error': 'Statuscode does not legal! Need 8 numbers.'})
         result=self.service.check_win_receipt_number(StatusCode)
         return JsonResponse(result)
         
     @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By LedgerID',
-        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
-            properties={
-                'LedgerID': openapi.Schema(type=openapi.TYPE_STRING, description='Ledger ID'),
-            },),
-        )    
-    @action(detail=False, methods=['post'])
+        manual_parameters=[
+            openapi.Parameter('LedgerID', openapi.IN_QUERY, description="LedgerID", type=openapi.TYPE_STRING),
+        ],
+        )  
+    @action(detail=False, methods=['get'])
     def check_receipt_by_LedgerID(self, request):
-        LedgerID = request.data['LedgerID']
-        try:
-            record_list= Record.objects.filter(LedgerID =LedgerID)
-        except Record.DoesNotExist:
-            record_list = None
-        if(record_list is None):
+        LedgerID = request.GET.get('LedgerID')
+        
+        record_list= Record.objects.filter(LedgerID =LedgerID)
+        if(record_list.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'This ledger does not has Record'})
         
         info = self.service.get_receipt_win_info()
@@ -683,6 +678,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
         for record in record_list:
             receipt_filter = receipt_filter | (Q(RecordID=record.RecordID)& Q(BuyDate__range=(start,end)))
         receipts=Receipt.objects.filter(receipt_filter)
+        print(receipts)
         if(receipts.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'User has no receipt in this date range'})
         result=self.service.check_many_win_receipt_number(receipts)
@@ -691,13 +687,13 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     
 
     @swagger_auto_schema(operation_summary='發票兌獎(最近一期)By RecordID',
-        request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
-            properties={
-                'RecordID': openapi.Schema(type=openapi.TYPE_STRING, description='紀錄ID'),
-            },),)    
-    @action(detail=False, methods=['post'])
+        manual_parameters=[
+            openapi.Parameter('RecordID', openapi.IN_QUERY, description="RecordID", type=openapi.TYPE_STRING),
+        ],
+        )   
+    @action(detail=False, methods=['get'])
     def check_receipt_by_RecordID(self, request):
-        RecordID = request.data['RecordID']
+        RecordID = request.GET.get('RecordID')
         try:
             record = Record.objects.get(RecordID=RecordID)
         except Record.DoesNotExist:
@@ -720,7 +716,6 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record\'s receipt  does not this month'})
-        
         try:
             receipt=Receipt.objects.get(RecordID=RecordID)
         except Receipt.DoesNotExist:
@@ -772,12 +767,10 @@ class SharePayViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_sharepay_by_ledger(self, request):
         LedgerID = request.GET.get('LedgerID')
-        try:
-            record = Record.objects.filter(LedgerID=LedgerID)
-        except Record.DoesNotExist:
-            record = None
-        if(record is None):
-            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
+
+        record = Record.objects.filter(LedgerID=LedgerID)
+        if(record.count() == 0):
+            return JsonResponse({'status': 'fail', 'error': 'This ledger does not has Record'})
         #取得帳本有權限者
         ledger_param = Ledger(
             LedgerID = LedgerID
@@ -814,12 +807,11 @@ class SharePayViewSet(viewsets.GenericViewSet):
             record = None
         if(record is None):
             return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
-        try:
-            sharepay = SharePay.objects.filter(RecordID=RecordID)
-        except SharePay.DoesNotExist:
-            sharepay = None
-        if(sharepay is None):
+        
+        sharepay = SharePay.objects.filter(RecordID=RecordID)
+        if(sharepay.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
+        
         ledger_param = Ledger(
             LedgerID = record.LedgerID.LedgerID
         )
@@ -848,13 +840,17 @@ class SharePayViewSet(viewsets.GenericViewSet):
     @action(detail=False, methods=['get'])
     def get_sharepay_user_by_record(self, request):
         RecordID = request.GET.get('RecordID')
-        record = Record.objects.get(RecordID = RecordID)
         try:
-            sharepay = SharePay.objects.filter(RecordID=RecordID)
-        except SharePay.DoesNotExist:
-            sharepay = None
-        if(sharepay is None):
+            record = Record.objects.get(RecordID = RecordID)
+        except Record.DoesNotExist:
+            record = None
+        if(record is None):
+            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
+
+        sharepay = SharePay.objects.filter(RecordID=RecordID)
+        if(sharepay.count() == 0):
             return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
+       
         ledger_param = Ledger(
             LedgerID = record.LedgerID.LedgerID
         )
