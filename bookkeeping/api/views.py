@@ -390,7 +390,12 @@ class RecordViewSet(viewsets.GenericViewSet):
         BoughtDate = request.data['BoughtDate']
         if BoughtDate != '':
             record.BoughtDate = request.data['BoughtDate']
-            
+
+        receipt = Receipt(
+                RecordID = record,
+                BuyDate = BoughtDate
+            )
+        ReceiptViewSet.update_receipt_date(self,request=receipt)
         
         array_shareUsers = request.data.get('ShareUsers')
         if (array_shareUsers == []):
@@ -465,6 +470,33 @@ class RecordViewSet(viewsets.GenericViewSet):
                 elif(record.ItemType =="收入" and share.ShouldPay>0):
                     money+=share.ShouldPay
         return JsonResponse({'status': 'success', 'this_month_ItemType_cost': money})
+    
+    @swagger_auto_schema(operation_summary='取得當月總支出',
+        request_body=None
+        )    
+    @action(detail=False, methods=['get'])
+    def get_this_month_total_pay(self, request):
+        user = request.user
+        ledgers =LedgerAccess.objects.filter(UserID=user.UserID)
+        ItemType = request.GET.get('ItemType')
+        Year = datetime.now().year
+        Month = datetime.now().month
+        end_day=calendar.monthrange(Year,int(Month))[1]
+        start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
+        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
+
+        record_filter = Q()
+        for ledger in ledgers:
+            record_filter = record_filter | Q(LedgerID=ledger.LedgerID.LedgerID) 
+        Records=Record.objects.filter(record_filter & ~Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
+        money=0
+        for record in Records:
+            shares = SharePay.objects.filter(Q(RecordID = record.RecordID)& Q(ShareUser=user.UserID))
+            for share in shares:
+                if(record.ItemType !="收入" and share.ShouldPay<0):
+                    money+=share.ShouldPay
+        return JsonResponse({'status': 'success', 'this_month_ItemType_cost': money})
+
 
 class ReceiptViewSet(viewsets.GenericViewSet):
     service = ReceiptService.ReceiptService()
@@ -535,6 +567,13 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             receipt.StatusCode = StatusCode
         receipt.save()
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
+    
+    def update_receipt_date(self, request):
+        RecordID = request.RecordID.RecordID
+        receipt = Receipt.objects.get(RecordID = RecordID)
+        receipt.BuyDate=request.BuyDate
+        receipt.save()
+        return JsonResponse({'status': 'success'})
     
     @swagger_auto_schema(operation_summary='取得使用者自己（有觀看權限）的所有發票',
          request_body=None
