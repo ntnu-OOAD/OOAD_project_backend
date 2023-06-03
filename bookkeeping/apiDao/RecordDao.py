@@ -56,3 +56,12 @@ class RecordDao:
         records=Record.objects.filter(record_filter & ~Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
         return records
     
+    @staticmethod
+    def get_user_records_by_ledgers(ledgers):
+        record_filter = Q()
+        for ledger in ledgers:
+            record_filter = record_filter | Q(LedgerID=ledger.LedgerID) 
+        records=Record.objects.filter(record_filter)
+        return records
+    
+    
