@@ -1,5 +1,5 @@
 from apiDao import UserDao, LedgerDao, LedgerAccessDao
-from apiServices.LedgerService import check_ledger_access
+from apiServices.LedgerService import LedgerService
 
 
 
@@ -10,7 +10,7 @@ class LedgerAccessService:
     def __init__(self):
         pass
 
-    @check_ledger_access(['Owner'])
+    @LedgerService.check_ledger_access(['Owner'])
     def create_ledger_access(self, requested_user_param, user_param, ledger_param, AccessLevel):
         user_param = self.UserDao.get_user_by_id(user_param.UserID)
         ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param)
@@ -26,7 +26,7 @@ class LedgerAccessService:
         else:
             return {'status': 'success', 'message': 'Ledger access created successfully'}
 
-    @check_ledger_access(['Owner'])
+    @LedgerService.check_ledger_access(['Owner'])
     def update_ledger_access(self, requested_user_param, user_param, ledger_param, AccessLevel):
         user_param = self.UserDao.get_user_by_id(user_param.UserID)
         ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param)
@@ -46,7 +46,7 @@ class LedgerAccessService:
         else:
             return {'status': 'success', 'message': 'Ledger access update successfully'}
 
-    @check_ledger_access(['Owner'])
+    @LedgerService.check_ledger_access(['Owner'])
     def delete_ledger_access(self, requested_user_param, user_param, ledger_param):
         user_param = self.UserDao.get_user_by_id(user_param.UserID)
         ledger_param = self.LedgerDao.get_ledger_by_id(ledger_param)
