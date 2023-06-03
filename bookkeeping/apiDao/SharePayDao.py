@@ -22,5 +22,20 @@ class SharePayDao:
     def get_sharepay_by_recordID_and_userID(user_param,record_parm):
         sharepays = SharePay.objects.filter(Q(RecordID = record_parm.RecordID)& Q(ShareUser=user_param.UserID))
         return sharepays
+    
+    @staticmethod
+    def get_sharepay_by_ledger(record,userID):
+        sharepay_filter = Q()
+        for sharepay_arr in record:
+            sharepay_filter = sharepay_filter | (Q(RecordID = sharepay_arr.RecordID) & Q( ShareUser = userID))
+        sharepays = SharePay.objects.filter(sharepay_filter)
+        return sharepays
+    
+    @staticmethod
+    def get_sharepay_by_recordID(record_param):
+        sharepays = SharePay.objects.filter(RecordID=record_param.RecordID)
+        return sharepays
+    
+
 
 

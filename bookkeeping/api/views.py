@@ -516,6 +516,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
     
 
 class SharePayViewSet(viewsets.GenericViewSet):
+    service = SharePayService.SharePayService()
     queryset = SharePay.objects.all()
     permission_classes = [
         permissions.IsAuthenticated
@@ -529,33 +530,12 @@ class SharePayViewSet(viewsets.GenericViewSet):
         )    
     @action(detail=False, methods=['get'])
     def get_sharepay_by_ledger(self, request):
-        LedgerID = request.GET.get('LedgerID')
-
-        record = Record.objects.filter(LedgerID=LedgerID)
-        if(record.count() == 0):
-            return JsonResponse({'status': 'fail', 'error': 'This ledger does not has Record'})
-        #取得帳本有權限者
         ledger_param = Ledger(
-            LedgerID = LedgerID
+            LedgerID = request.GET.get('LedgerID')
         )
-        user_param = request.user
-        result = LedgerService.LedgerService().get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level= "true")
-        result= result['ledger_with_access']
-        result= result['users_access_list']
-        sharepay_result={'sharepay':[]}
-        for array in result:
-            userId= array['UserID']
-            sharepay_filter = Q()
-            for sharepay_arr in record:
-                sharepay_filter = sharepay_filter | (Q(RecordID = sharepay_arr.RecordID) & Q( ShareUser = userId))
-            sharepay=SharePay.objects.filter(sharepay_filter)
-            money=0
-            for arr in sharepay:
-                money+=arr.ShouldPay
-            sharepay_result['sharepay'].append({'UserID':userId,'UserName':array['UserName'],'Share_money':money})
-
-        return JsonResponse({'status': 'success','result':sharepay_result})
-    
+        result = self.service.get_sharepay_by_ledger(ledger_param)
+        return JsonResponse(result)
+       
     @swagger_auto_schema(operation_summary='取得紀錄分帳By RecordID',
         manual_parameters=[
             openapi.Parameter('RecordID', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_STRING),
@@ -563,38 +543,13 @@ class SharePayViewSet(viewsets.GenericViewSet):
         )    
     @action(detail=False, methods=['get'])
     def get_sharepay_by_record(self, request):
-        RecordID = request.GET.get('RecordID')
-        try:
-            record = Record.objects.get(RecordID = RecordID)
-        except Record.DoesNotExist:
-            record = None
-        if(record is None):
-            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
-        
-        sharepay = SharePay.objects.filter(RecordID=RecordID)
-        if(sharepay.count() == 0):
-            return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
-        
-        ledger_param = Ledger(
-            LedgerID = record.LedgerID.LedgerID
+        record_param = Record(
+            RecordID = request.GET.get('RecordID'),
         )
-        user_param = request.user
-        result = LedgerService.LedgerService().get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level= "true")
-        result= result['ledger_with_access']
-        result= result['users_access_list']
-        sharepay_result={'sharepay':[]}
-        for array in result:
-            userId= array['UserID']
-            sharepay=SharePay.objects.filter(Q(RecordID = RecordID) & Q( ShareUser = userId))
-            money=0
-            for arr in sharepay:
-                if(record.ItemType!="收入" and arr.ShouldPay<0):
-                    money+=arr.ShouldPay
-                elif(record.ItemType == "收入" and arr.ShouldPay>0):
-                    money+=arr.ShouldPay
-            sharepay_result['sharepay'].append({'UserID':userId,'UserName':array['UserName'],'Share_money':money})
-        return JsonResponse({'status': 'success','result':sharepay_result})
-    
+        result = self.service.get_sharepay_by_record(record_param)
+        return JsonResponse(result)
+
+       
     @swagger_auto_schema(operation_summary='取得分帳者 By RecordID',
         manual_parameters=[
             openapi.Parameter('RecordID', openapi.IN_QUERY, description="Record ID", type=openapi.TYPE_STRING),
@@ -602,39 +557,11 @@ class SharePayViewSet(viewsets.GenericViewSet):
         )    
     @action(detail=False, methods=['get'])
     def get_sharepay_user_by_record(self, request):
-        RecordID = request.GET.get('RecordID')
-        try:
-            record = Record.objects.get(RecordID = RecordID)
-        except Record.DoesNotExist:
-            record = None
-        if(record is None):
-            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
-
-        sharepay = SharePay.objects.filter(RecordID=RecordID)
-        if(sharepay.count() == 0):
-            return JsonResponse({'status': 'fail', 'error': 'SharePay does not exist'})
-       
-        ledger_param = Ledger(
-            LedgerID = record.LedgerID.LedgerID
+        record_param = Record(
+            RecordID = request.GET.get('RecordID'),
         )
-        user_param = request.user
-        result = LedgerService.LedgerService().get_ledger_info(user_param=user_param, ledger_param=ledger_param, with_access_level= "true")
-        result= result['ledger_with_access']
-        result= result['users_access_list']
-        sharepay_result={'ShareUsers':[]}
-        for array in result:
-            userId= array['UserID']
-            sharepay=SharePay.objects.filter(Q(RecordID = RecordID) & Q( ShareUser = userId))
-            money=0
-            for arr in sharepay:
-                if(record.ItemType!="收入" and arr.ShouldPay<0):
-                    money+=arr.ShouldPay
-                elif(record.ItemType == "收入" and arr.ShouldPay>0):
-                    money+=arr.ShouldPay
-            if(money!=0):
-                sharepay_result['ShareUsers']+=[userId]
-        return JsonResponse({'status': 'success','ShareUsers':sharepay_result.get('ShareUsers')})
-   
+        result = self.service.get_sharepay_user_by_record(record_param)
+        return JsonResponse(result)
    
    
    
