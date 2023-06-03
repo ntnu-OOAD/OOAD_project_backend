@@ -33,3 +33,9 @@ class LedgerAccessDao:
             UserID=user_param, 
             LedgerID=ledger_param).first()
         return ledger_access
+    
+    @staticmethod
+    def get_all_ledger_access_by_userID(user_param):
+        ledger_access = LedgerAccess.objects.filter(
+            UserID=user_param)
+        return ledger_access

@@ -12,7 +12,7 @@ from drf_yasg import openapi
 from django.db import connection
 from django.db.models import Q, F
 
-from apiServices import UserService, LedgerService, LedgerAccessService,ReceiptService
+from apiServices import UserService, LedgerService, LedgerAccessService,RecordService,ReceiptService,SharePayService
 
 import calendar #
 class UserViewSet(viewsets.GenericViewSet):
@@ -257,6 +257,7 @@ class RecordViewSet(viewsets.GenericViewSet):
     permission_classes = [
         permissions.IsAuthenticated
     ]
+    service = RecordService.RecordService()
     serializer_class = RecordSerializer
     @swagger_auto_schema(operation_summary='新增分帳紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
@@ -272,50 +273,25 @@ class RecordViewSet(viewsets.GenericViewSet):
             },),)    
     @action(detail=False, methods=['post'])
     def create_sharepay_record(self, request):
-        LedgerID = request.data['LedgerID']
-        ItemName = request.data['ItemName']
-        ItemType = request.data['ItemType']
-        Cost = request.data['Cost']
-        Payby = request.data['Payby']
+        user_param = User(
+            UserID = request.user.UserID
+        )
+        record_param = Record(
+            ItemName = request.data.get('ItemName'),
+            ItemType = request.data.get('ItemType'),
+            Cost = request.data.get('Cost'),
+            BoughtDate = request.data.get('BoughtDate')
+        )
+        ledger_param = Ledger(
+            LedgerID = request.data.get('LedgerID')
+        )
+        user_payby_param=User(
+            UserID = request.data.get('Payby')
+        )
         array_shareUsers = request.data.get('ShareUsers')
-        if (array_shareUsers == []):
-            return JsonResponse({'status': 'fail', 'error': "shareUsers is NULL"})
-        
-        if(Payby ==''):
-            Payby=request.user.UserID
-        if(ItemType != "收入"):
-            Cost=int(Cost)*(-1)
-        BoughtDate = request.data['BoughtDate']
-        if(BoughtDate == ''):
-            BoughtDate = datetime.now()
-        ledger = Ledger.objects.get(LedgerID=LedgerID)
-        payby = User.objects.get(UserID=Payby)
-        record = Record.objects.create(LedgerID=ledger, ItemName=ItemName, ItemType=ItemType, Cost=Cost, Payby=payby, BoughtDate=BoughtDate)
-        record.save()
-        l=0
-        for item in array_shareUsers:
-            l+=1
-        cost=int(Cost)
-        #付錢者
-        sharepay = SharePay(
-                ShouldPay = cost*(-1),
-                RecordID = record,
-                ShareUser = payby
-            )
-        SharePayViewSet.add_sharepay(self, request=sharepay)
-        #分帳者
-        for item in array_shareUsers:
-            sharepay = SharePay(
-                ShouldPay = cost/l,
-                RecordID = record,
-                ShareUser = User.objects.get(UserID=item)
-            )
-            SharePayViewSet.add_sharepay(self, request=sharepay)
-
-
-        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
-    
-    #delete record
+        result = self.service.create_sharepay_record(user_param,record_param,ledger_param,user_payby_param,array_shareUsers)   
+        return JsonResponse(result)
+  
     @swagger_auto_schema(operation_summary='刪除紀錄',
         request_body=openapi.Schema(type=openapi.TYPE_OBJECT,
             properties={
@@ -323,10 +299,11 @@ class RecordViewSet(viewsets.GenericViewSet):
             },),)    
     @action(detail=False, methods=['post'])
     def delete_record(self, request):
-        RecordID = request.data['RecordID']
-        record = Record.objects.get(RecordID=RecordID)
-        record.delete()
-        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
+        record_param = Record(
+            RecordID = request.data.get('RecordID')
+        )
+        result = self.service.delete_record(record_param)
+        return JsonResponse(result)
     
     #update_record
     @swagger_auto_schema(operation_summary='修改紀錄資料',
@@ -343,92 +320,20 @@ class RecordViewSet(viewsets.GenericViewSet):
             },),)    
     @action(detail=False, methods=['post'])
     def update_record(self, request):
-        RecordID = request.data['RecordID']
-        try:
-            record = Record.objects.get(RecordID=RecordID)
-        except Record.DoesNotExist:
-            record = None
-        if(record is None):
-            return JsonResponse({'status': 'fail', 'error': 'Record does not exist'})
-        
-        ItemName = request.data['ItemName']
-        if ItemName != '':
-            record.ItemName = request.data['ItemName']
-
-        ItemType = request.data['ItemType']
-        Cost = request.data['Cost']
-        if ItemType != '' and Cost != '':
-            record.ItemType = request.data['ItemType']
-            cost = int(request.data['Cost'])
-            if('ItemType'!="收入" and cost>0):
-                cost=cost*(-1)
-            record.Cost=cost
-        elif ItemType != '':
-            record.ItemType = request.data['ItemType']
-            cost=int(record.Cost)
-            if(record.ItemType!="收入" and cost>0):
-                cost=cost*(-1)
-            elif(record.ItemType=="收入" and cost<0):
-                cost=cost*(-1)
-            record.Cost=cost
-        elif Cost != '':
-            cost = int(request.data['Cost'])
-            if(record.ItemType != "收入" and cost>0):
-                cost=cost*(-1)
-            record.Cost=cost
-        else:
-            cost=record.Cost
-
-        Payby = request.data['Payby']
-        if Payby != '':
-            payby=request.data['Payby']
-            payby = User.objects.get(UserID=payby)
-            record.Payby =payby
-        else:
-            payby=record.Payby
-
-        BoughtDate = request.data['BoughtDate']
-        if BoughtDate != '':
-            record.BoughtDate = request.data['BoughtDate']
-
-        receipt = Receipt(
-                RecordID = record,
-                BuyDate = BoughtDate
-            )
-        ReceiptViewSet.update_receipt_date(self,request=receipt)
-        
-        array_shareUsers = request.data.get('ShareUsers')
-        if (array_shareUsers == []):
-            return JsonResponse({'status': 'fail', 'error': "shareUsers is NULL"})
-        #delete old sharepay
-        sharepay = SharePay(
-            RecordID = record,
+        record_param = Record(
+            RecordID = request.data.get('RecordID'),
+            ItemName = request.data.get('ItemName'),
+            ItemType = request.data.get('ItemType'),
+            Cost = request.data.get('Cost'),
+            BoughtDate = request.data.get('BoughtDate')
         )
-        SharePayViewSet.delete_sharepay(self, request=sharepay)
-        #add new sharepay
-        l=0
-        for item in array_shareUsers:
-            l+=1
-        cost=int(cost)
-        #付錢者
-        sharepay = SharePay(
-                ShouldPay = cost*(-1),
-                RecordID = record,
-                ShareUser = payby
-            )
-        SharePayViewSet.add_sharepay(self, request=sharepay)
-        #分帳者
-        for item in array_shareUsers:
-            sharepay = SharePay(
-                ShouldPay = cost/l,
-                RecordID = record,
-                ShareUser = User.objects.get(UserID=item)
-            )
-            SharePayViewSet.add_sharepay(self, request=sharepay)
+        user_payby_param=User(
+            UserID = request.data.get('Payby')
+        )
+        array_shareUsers = request.data.get('ShareUsers')
+        result = self.service.update_record(record_param , user_payby_param , array_shareUsers)   
+        return JsonResponse(result)
 
-        record.save()
-        return JsonResponse({'status': 'success', 'record': RecordSerializer(record).data})
-    
     # get records by ledger with ledgerID as parameter
     @swagger_auto_schema(operation_summary='取得單一帳本所有紀錄',
         manual_parameters=[
@@ -437,9 +342,11 @@ class RecordViewSet(viewsets.GenericViewSet):
         )    
     @action(detail=False, methods=['get'])
     def get_records_by_ledger(self, request):
-        LedgerID = request.GET.get('LedgerID')
-        records = Record.objects.filter(LedgerID=LedgerID)
-        return JsonResponse({'status': 'success', 'record': RecordSerializer(records, many=True).data})
+        ledger_param = Ledger(
+            LedgerID = request.GET.get('LedgerID')
+        )
+        result = self.service.get_records_by_ledger(ledger_param)
+        return JsonResponse(result)
     
     @swagger_auto_schema(operation_summary='取得當月支出類型ItemType(食,衣,住,行,育,樂,其他/收入)',
        manual_parameters=[
@@ -448,55 +355,26 @@ class RecordViewSet(viewsets.GenericViewSet):
         )    
     @action(detail=False, methods=['get'])
     def get_this_month_ItemType_cost(self, request):
-        user = request.user
-        ledgers =LedgerAccess.objects.filter(UserID=user.UserID)
-        ItemType = request.GET.get('ItemType')
-        Year = datetime.now().year
-        Month = datetime.now().month
-        end_day=calendar.monthrange(Year,int(Month))[1]
-        start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
-        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
+        user_param = User(
+            UserID = request.user.UserID
+        )
+        record_param = Record(
+            ItemType = request.GET.get('ItemType')
+        )
+        result = self.service.get_this_month_ItemType_cost(user_param,record_param)
 
-        record_filter = Q()
-        for ledger in ledgers:
-            record_filter = record_filter | Q(LedgerID=ledger.LedgerID.LedgerID) 
-        Records=Record.objects.filter(record_filter & Q(ItemType=ItemType) & Q(BoughtDate__range=(start,end)))
-        money=0
-        for record in Records:
-            shares = SharePay.objects.filter(Q(RecordID = record.RecordID)& Q(ShareUser=user.UserID))
-            for share in shares:
-                if(record.ItemType !="收入" and share.ShouldPay<0):
-                    money+=share.ShouldPay
-                elif(record.ItemType =="收入" and share.ShouldPay>0):
-                    money+=share.ShouldPay
-        return JsonResponse({'status': 'success', 'this_month_ItemType_cost': money})
-    
+        return JsonResponse(result)
+        
     @swagger_auto_schema(operation_summary='取得當月總支出',
         request_body=None
         )    
     @action(detail=False, methods=['get'])
     def get_this_month_total_pay(self, request):
-        user = request.user
-        ledgers =LedgerAccess.objects.filter(UserID=user.UserID)
-        ItemType = request.GET.get('ItemType')
-        Year = datetime.now().year
-        Month = datetime.now().month
-        end_day=calendar.monthrange(Year,int(Month))[1]
-        start = str(Year)+'-'+str(Month)+"-1 00:00:00.000000"
-        end = str(Year)+'-'+str(Month)+"-"+str(end_day)+" 23:59:59.999999"
-
-        record_filter = Q()
-        for ledger in ledgers:
-            record_filter = record_filter | Q(LedgerID=ledger.LedgerID.LedgerID) 
-        Records=Record.objects.filter(record_filter & ~Q(ItemType="收入") & Q(BoughtDate__range=(start,end)))
-        money=0
-        for record in Records:
-            shares = SharePay.objects.filter(Q(RecordID = record.RecordID)& Q(ShareUser=user.UserID))
-            for share in shares:
-                if(record.ItemType !="收入" and share.ShouldPay<0):
-                    money+=share.ShouldPay
-        return JsonResponse({'status': 'success', 'this_month_ItemType_cost': money})
-
+        user_param = User(
+            UserID = request.user.UserID
+        )
+        result=self.service.get_this_month_total_pay(user_param)
+        return JsonResponse(result)
 
 class ReceiptViewSet(viewsets.GenericViewSet):
     service = ReceiptService.ReceiptService()
@@ -567,14 +445,7 @@ class ReceiptViewSet(viewsets.GenericViewSet):
             receipt.StatusCode = StatusCode
         receipt.save()
         return JsonResponse({'status': 'success', 'receipt': ReceiptSerializer(receipt).data})
-    
-    def update_receipt_date(self, request):
-        RecordID = request.RecordID.RecordID
-        receipt = Receipt.objects.get(RecordID = RecordID)
-        receipt.BuyDate=request.BuyDate
-        receipt.save()
-        return JsonResponse({'status': 'success'})
-    
+
     @swagger_auto_schema(operation_summary='取得使用者自己（有觀看權限）的所有發票',
          request_body=None
         )    
@@ -742,23 +613,7 @@ class SharePayViewSet(viewsets.GenericViewSet):
         permissions.IsAuthenticated
     ]
     serializer_class = SharePaySerializer
-    
-    def add_sharepay(self, request):
-        RecordID = request.RecordID.RecordID
-        record = Record.objects.get(RecordID = RecordID)
-        ShouldPay = request.ShouldPay
-        ShareUserID = request.ShareUser.UserID
-        share_user=User.objects.get(UserID = ShareUserID)
-        sharepay = SharePay.objects.create(RecordID=record, ShouldPay=ShouldPay, ShareUser = share_user)
-        sharepay.save()
-        return JsonResponse({'status': 'success'})
-    
-    def delete_sharepay(self, request):
-        RecordID = request.RecordID.RecordID
-        sharepay=SharePay.objects.filter(RecordID = RecordID)
-        sharepay.delete()
-        return JsonResponse({'status': 'success'})
-    
+
     @swagger_auto_schema(operation_summary='計算帳本分帳總金額',
         manual_parameters=[
             openapi.Parameter('LedgerID', openapi.IN_QUERY, description="Ledger ID", type=openapi.TYPE_STRING),
