@@ -33,7 +33,7 @@ class LedgerService:
                 if 'record_param' in kwargs:
                     record = kwargs['record_param']
                     ledger = record.LedgerID
-                user_access = LedgerAccess.objects.filter(UserID=user, LedgerID=ledger).first()
+                user_access = self.LedgerAccessDao.get_ledger_access(user, ledger)
                 if user_access is None or user_access.AccessLevel not in AccessLevel:
                     return {'status': 'fail', 'message': f'You have no access to this ledger method, only {", ".join([str(i) for i in AccessLevel])} can access this ledger'}
                 else:
